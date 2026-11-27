@@ -1,7 +1,7 @@
 /* Fazo Mobile — веб-версия терминала для телефона (PWA).
    Работает без ПК: котировки берёт сам браузер у Binance, Binance Futures, Bybit и cTrader (Open API, JSON через WebSocket). */
 "use strict";
-const VER = "1.1.1";
+const VER = "1.2.0";
 const LWC = window.LightweightCharts;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -503,7 +503,6 @@ const G = {chart: null, main: null, vol: null, B: [], HA: [], dig: 2, tok: 0, un
 function initChart() {
   G.chart = LWC.createChart($("#chart"), CH_OPT);
   G.chart.subscribeCrosshairMove(p => { G.hover = !!(p && p.time); legend(p && p.time ? p : null); });
-  G.chart.subscribeClick(onChartTap);
   G.chart.timeScale().subscribeVisibleLogicalRangeChange(r => {
     if (!r) return;
     G.subs.forEach(s => s.chart.timeScale().setVisibleLogicalRange(r));
@@ -545,7 +544,7 @@ function renderAll(keepRange) {
   G.main.setData(G.B.map(toPt));
   if (G.vol) G.vol.setData(G.B.map(volPt));
   renderInds();
-  renderDrawings();
+  if (typeof DR !== "undefined") DR.dirty();
   renderAlertLines();
   if (r) G.chart.timeScale().setVisibleLogicalRange({from: r.from + keepRange, to: r.to + keepRange});
   legend(null);
@@ -648,7 +647,7 @@ async function loadChart() {
   $("#symTxt").textContent = sym; $("#srcTxt").textContent = SRC_TAG[src] || src; $("#tfBtn").textContent = S.tf;
   if (typeof TR !== "undefined") { TR.chartBtns(); TR.chartLines(); }
   chartMsg(null); $("#loading").classList.add("on");
-  if (G.main) G.main.setData([]); if (G.vol) G.vol.setData([]); clearInds(); clearDrawings(); legend(null);
+  if (G.main) G.main.setData([]); if (G.vol) G.vol.setData([]); clearInds(); if (typeof DR !== "undefined") DR.load(); legend(null);
   if (src === "CT" && !CT.configured()) {
     $("#loading").classList.remove("on");
     chartMsg(esc(T("Этот инструмент идёт через cTrader. Подключите cTrader в настройках.")), T("Настроить cTrader"), () => { go("pgSet"); });
@@ -699,51 +698,6 @@ async function loadMore() {
 function openSym(key) {
   S.sym = key; save("sym");
   go("pgChart"); loadChart(); syncTickers();
-}
-
-/* ---- рисование ---- */
-const drawKey = () => "draw:" + S.sym;
-function clearDrawings() {
-  G.drawObjs.forEach(o => { try { o.line ? G.main && G.main.removePriceLine(o.line) : G.chart.removeSeries(o.series); } catch (e) {} });
-  G.drawObjs = [];
-}
-function renderDrawings() {
-  clearDrawings();
-  if (!G.main || !G.B.length) return;
-  const t0 = G.B[0].time, t1 = G.B[G.B.length - 1].time;
-  LS.get(drawKey(), []).forEach(d => {
-    if (d.t === "h") G.drawObjs.push({line: G.main.createPriceLine({price: d.p, color: d.c || "#2962ff", lineWidth: 1, lineStyle: 0, axisLabelVisible: true})});
-    else if (d.t === "tr") {
-      if (d.a.t < t0 || d.b.t < t0 || d.a.t > t1 || d.b.t > t1 || d.a.t === d.b.t) return;
-      const s = G.chart.addLineSeries({color: d.c || "#2962ff", lineWidth: 2, lastValueVisible: false, priceLineVisible: false, crosshairMarkerVisible: false,
-        priceFormat: {type: "price", precision: G.dig, minMove: 1 / 10 ** G.dig}});
-      s.setData([d.a, d.b].sort((x, y) => x.t - y.t).map(x => ({time: x.t + TZ, value: x.p})));
-      G.drawObjs.push({series: s});
-    }
-  });
-}
-function setTool(t) {
-  G.tool = t; G.pts = [];
-  $("#drawBtn").classList.toggle("on", !!t);
-  const h = $("#drawHint");
-  if (!t) { h.classList.remove("on"); return; }
-  h.innerHTML = esc(t === "h" ? T("Коснитесь графика, чтобы поставить линию") : T("Коснитесь первой точки")) + ` &nbsp;<u id="drawCancel">${esc(T("Отмена"))}</u>`;
-  h.classList.add("on");
-  $("#drawCancel").onclick = e => { e.stopPropagation(); setTool(null); };
-  h.style.pointerEvents = "auto";
-}
-function onChartTap(p) {
-  if (!G.tool || !p || !p.point || !G.main || !G.B.length) return;
-  const price = G.main.coordinateToPrice(p.point.y); if (price == null) return;
-  const lg = G.chart.timeScale().coordinateToLogical(p.point.x);
-  const i = Math.max(0, Math.min(G.B.length - 1, Math.round(lg == null ? G.B.length - 1 : lg)));
-  const pt = {t: G.B[i].time, p: +price.toFixed(G.dig)};
-  const list = LS.get(drawKey(), []);
-  if (G.tool === "h") { list.push({t: "h", p: pt.p}); LS.set(drawKey(), list); setTool(null); renderDrawings(); return; }
-  G.pts.push(pt);
-  if (G.pts.length === 1) { $("#drawHint").firstChild.textContent = T("Коснитесь второй точки") + " "; return; }
-  if (G.pts[0].t === G.pts[1].t) { G.pts.pop(); return; }
-  list.push({t: "tr", a: G.pts[0], b: G.pts[1]}); LS.set(drawKey(), list); setTool(null); renderDrawings();
 }
 
 /* ================= котировки и алерты ================= */
@@ -867,20 +821,6 @@ function indSheet() {
   const changed = () => { save("inds"); if (G.main && G.B.length) { renderInds(); legend(null); } };
   const b = sheet(T("Индикаторы"), "");
   draw();
-}
-
-/* ---- рисование ---- */
-function drawSheet() {
-  if (G.tool) { setTool(null); return; }
-  const list = LS.get(drawKey(), []), d = G.dig;
-  const b = sheet(T("Рисование"), `<button class="opt" data-tool="h"><svg viewBox="0 0 24 24"><path d="M3 12h18"/></svg>${esc(T("Горизонтальная линия"))}</button>
-    <button class="opt" data-tool="tr"><svg viewBox="0 0 24 24"><path d="M4 19 20 5"/></svg>${esc(T("Линия тренда"))}</button>
-    ${list.length ? `<div class="sec">${esc(T("Рисунки на графике"))}</div>` + list.map((x, i) => `<div class="opt">${x.t === "h" ? "― " + fmt(x.p, d) : "⟋ " + fmt(x.a.p, d) + " → " + fmt(x.b.p, d)}
-      <button class="r" data-dd="${i}" style="color:var(--dn);font-size:16px">✕</button></div>`).join("") +
-      `<button class="opt" id="drAll" style="color:var(--dn)">${esc(T("Удалить все рисунки"))}</button>` : ""}`);
-  $$("[data-tool]", b).forEach(e => e.onclick = () => { closeSheet(); setTool(e.dataset.tool); });
-  $$("[data-dd]", b).forEach(e => e.onclick = () => { const l = LS.get(drawKey(), []); l.splice(+e.dataset.dd, 1); LS.set(drawKey(), l); renderDrawings(); drawSheet(); });
-  const all = $("#drAll", b); if (all) all.onclick = () => { LS.set(drawKey(), []); renderDrawings(); closeSheet(); };
 }
 
 /* ---- поиск инструмента ---- */
@@ -1049,7 +989,7 @@ function boot() {
   $("#tfBtn").onclick = tfSheet;
   $("#typeBtn").onclick = typeSheet;
   $("#indBtn").onclick = indSheet;
-  $("#drawBtn").onclick = drawSheet;
+  $("#drawBtn").onclick = () => DR.menu();
   $("#alertBtn").onclick = () => alertSheet();
   $("#wAdd").onclick = () => searchSheet("add");
   $("#wEdit").onclick = () => { wEdit = !wEdit; renderWatch(); };
