@@ -139,6 +139,10 @@ input:focus,select:focus{border-color:var(--bl)}
 #splash{position:fixed;inset:0;z-index:100;background:#000;display:flex;align-items:center;justify-content:center;transition:opacity .4s}
 #splash img{width:min(88vw,620px);border-radius:12px}
 #splash.off{opacity:0;pointer-events:none}
+#tradeBtns{position:absolute;right:72px;bottom:34px;z-index:5;display:flex;gap:6px}
+#tradeBtns button{height:34px;padding:0 16px;border-radius:8px;color:#fff;font-weight:700;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.45)}
+#tSell{background:var(--dn)} #tBuy{background:var(--up)}
+#tEx{padding-top:10px}
 @media (orientation:landscape) and (max-height:500px){#nav button{height:42px;flex-direction:row;gap:6px}#subs .sub{height:80px}}
 </style>
 </head>
@@ -164,6 +168,7 @@ input:focus,select:focus{border-color:var(--bl)}
         <div id="loading"><div class="spin"></div></div>
         <div id="chartMsg"></div>
         <div id="drawHint"></div>
+        <div id="tradeBtns" style="display:none"><button id="tSell" data-t="Продать"></button><button id="tBuy" data-t="Купить"></button></div>
       </div>
       <div id="subs"></div>
     </div>
@@ -175,6 +180,11 @@ input:focus,select:focus{border-color:var(--bl)}
       <div class="hd"><h2 data-t="Алерты"></h2><button class="btn pri" id="aAdd">＋</button></div>
       <div class="list" id="aList"></div>
     </div>
+    <div class="page" id="pgTrade">
+      <div class="hd"><h2 data-t="Торговля"></h2></div>
+      <div class="tabs" id="tEx"></div>
+      <div class="list" id="tList"></div>
+    </div>
     <div class="page" id="pgSet">
       <div class="hd"><h2 data-t="Настройки"></h2></div>
       <div class="list" id="sList"></div>
@@ -184,6 +194,7 @@ input:focus,select:focus{border-color:var(--bl)}
     <button data-p="pgChart" class="on"><svg viewBox="0 0 24 24"><path d="M3 20h18"/><path d="M5 16l4-5 4 3 6-8"/></svg><span data-t="График"></span></button>
     <button data-p="pgWatch"><svg viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h14"/></svg><span data-t="Котировки"></span></button>
     <button data-p="pgAlerts"><svg viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15z"/><path d="M10 21h4"/></svg><span data-t="Алерты"></span></button>
+    <button data-p="pgTrade"><svg viewBox="0 0 24 24"><path d="M7 4v16M17 4v16"/><path d="M4 9l3-3 3 3M14 15l3 3 3-3"/></svg><span data-t="Торговля"></span></button>
     <button data-p="pgSet"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg><span data-t="Настройки"></span></button>
   </div>
 </div>
@@ -192,5 +203,7 @@ input:focus,select:focus{border-color:var(--bl)}
 <div id="toast"></div>
 <script src="lightweight-charts.js"></script>
 <script src="app.js"></script>
+<script src="trade.js"></script>
+<script>applyLang();</script>
 </body>
 </html>

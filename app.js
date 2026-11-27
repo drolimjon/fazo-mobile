@@ -1,7 +1,7 @@
 /* Fazo Mobile — веб-версия терминала для телефона (PWA).
    Работает без ПК: котировки берёт сам браузер у Binance, Binance Futures, Bybit и cTrader (Open API, JSON через WebSocket). */
 "use strict";
-const VER = "1.0.2";
+const VER = "1.1.0";
 const LWC = window.LightweightCharts;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -549,6 +549,7 @@ function renderAll(keepRange) {
   renderAlertLines();
   if (r) G.chart.timeScale().setVisibleLogicalRange({from: r.from + keepRange, to: r.to + keepRange});
   legend(null);
+  if (typeof TR !== "undefined") TR.chartLines();
 }
 
 /* ---- индикаторы на графике ---- */
@@ -645,6 +646,7 @@ async function loadChart() {
   G.more = false; G.noMore = false; G.B = [];
   const [src, sym] = splitKey(S.sym), S0 = SRC[src];
   $("#symTxt").textContent = sym; $("#srcTxt").textContent = SRC_TAG[src] || src; $("#tfBtn").textContent = S.tf;
+  if (typeof TR !== "undefined") { TR.chartBtns(); TR.chartLines(); }
   chartMsg(null); $("#loading").classList.add("on");
   if (G.main) G.main.setData([]); if (G.vol) G.vol.setData([]); clearInds(); clearDrawings(); legend(null);
   if (src === "CT" && !CT.configured()) {
@@ -815,6 +817,7 @@ function go(id) {
   if (id === "pgWatch") renderWatch();
   if (id === "pgAlerts") renderAlerts();
   if (id === "pgSet") renderSettings();
+  if (id === "pgTrade" && typeof TR !== "undefined") TR.render();
 }
 let sheetClose = null;
 function sheet(title, html, onClose) {
