@@ -1,7 +1,7 @@
 /* Fazo Mobile — веб-версия терминала для телефона (PWA).
    Работает без ПК: котировки берёт сам браузер у Binance, Binance Futures, Bybit и cTrader (Open API, JSON через WebSocket). */
 "use strict";
-const VER = "1.2.0";
+const VER = "1.2.1";
 const LWC = window.LightweightCharts;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -45,7 +45,7 @@ const EN = {
   "Длина": "Length", "Множ.": "Mult.", "Цвет": "Color", "Быстрая": "Fast", "Медленная": "Slow", "Сигнал": "Signal",
   "Период ATR": "ATR period", "Сглаж.": "Smooth", "Объём": "Volume", "Показывать объём": "Show volume",
   "Сохранено": "Saved", "Выше": "Above", "Ниже": "Below", "Пересечение": "Crossing", "Условие": "Condition",
-  "Нет связи": "No connection", "Скопировано": "Copied", "Удалить": "Delete", "Текущая цена": "Current price"
+  "Нет связи": "No connection", "ТОРГОВАЯ ПЛАТФОРМА": "TRADING PLATFORM", "Скопировано": "Copied", "Удалить": "Delete", "Текущая цена": "Current price"
 };
 let LANG = LS.get("lang", (navigator.language || "ru").toLowerCase().startsWith("ru") ? "ru" : "en");
 const T = s => LANG === "en" ? (EN[s] || s) : s;
@@ -1008,8 +1008,8 @@ function boot() {
   });
   if (CT.configured()) CT.ready().catch(() => {});
   loadChart(); syncTickers();
-  setTimeout(() => $("#splash").classList.add("off"), 1400);
-  setTimeout(() => $("#splash").remove(), 2000);
+  setTimeout(() => $("#splash").classList.add("off"), 1900);
+  setTimeout(() => $("#splash").remove(), 2400);
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
 }
 boot();
