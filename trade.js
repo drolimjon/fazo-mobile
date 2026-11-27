@@ -383,10 +383,34 @@ const TR = (() => {
   }
 
   /* ---------- график: кнопки и линии позиций ---------- */
-  function chartBtns() {
-    const e = splitKey(S.sym)[0];
-    $("#tradeBtns").style.display = EXS[e] ? "" : "none";
+  /* кнопки Продать / Купить с ценами bid / ask и спредом (поток лучших цен стакана) */
+  let book = null, bookKey = "";
+  const pxs = v => { const s = fmt(v, S.dig[S.sym] || G.dig || 2); return LANG === "ru" ? s.replace(".", ",") : s; };
+  function paintBook(b, a) {
+    $("#tBid").textContent = b ? pxs(b) : "—"; $("#tAsk").textContent = a ? pxs(a) : "—";
+    $("#tSpread").textContent = b && a ? pxs(a - b) : "";
   }
+  function placeBtns() {
+    const lg = $("#legend"); $("#tradeBtns").style.top = (lg.offsetTop + lg.offsetHeight + 6) + "px";
+  }
+  function chartBtns() {
+    const [e, sym] = splitKey(S.sym), on = !!EXS[e];
+    $("#tradeBtns").style.display = on ? "" : "none";
+    if (bookKey === S.sym) { placeBtns(); return; }
+    if (book) { book.close(); book = null; }
+    bookKey = S.sym; paintBook(null, null);
+    if (!on) return;
+    placeBtns(); setTimeout(placeBtns, 300);
+    if (e === "BINANCEF") book = rws(`wss://fstream.binance.com/public/ws/${sym.toLowerCase()}@bookTicker`, null, m => { if (m.b) paintBook(+m.b, +m.a); });
+    else book = rws("wss://stream.bybit.com/v5/public/linear", ws => ws.send(JSON.stringify({op: "subscribe", args: ["orderbook.1." + sym]})), m => {
+      const d = m.data; if (!d) return;
+      const b = d.b && d.b[0], a = d.a && d.a[0];
+      if (m.type === "snapshot") { book.b = b ? +b[0] : null; book.a = a ? +a[0] : null; }
+      else { if (b && +b[1]) book.b = +b[0]; if (a && +a[1]) book.a = +a[0]; }
+      paintBook(book.b, book.a);
+    }, {msg: JSON.stringify({op: "ping"}), ms: 20000});
+  }
+  new ResizeObserver(() => { if ($("#tradeBtns").style.display !== "none") placeBtns(); }).observe($("#legend"));
   function chartLines() {
     lines.forEach(l => { try { G.main && G.main.removePriceLine(l); } catch (x) {} });
     lines = [];

@@ -139,9 +139,12 @@ input:focus,select:focus{border-color:var(--bl)}
 #splash{position:fixed;inset:0;z-index:100;background:#000;display:flex;align-items:center;justify-content:center;transition:opacity .4s}
 #splash img{width:min(88vw,620px);border-radius:12px}
 #splash.off{opacity:0;pointer-events:none}
-#tradeBtns{position:absolute;right:72px;bottom:34px;z-index:5;display:flex;gap:6px}
-#tradeBtns button{height:34px;padding:0 16px;border-radius:8px;color:#fff;font-weight:700;font-size:13px;box-shadow:0 4px 14px rgba(0,0,0,.45)}
-#tSell{background:var(--dn)} #tBuy{background:var(--up)}
+#tradeBtns{position:absolute;left:8px;top:64px;z-index:5;display:flex;align-items:center;gap:6px;background:rgba(16,16,16,.85);border-radius:6px;padding:3px}
+#tradeBtns button{min-width:86px;height:40px;padding:2px 8px;border-radius:4px;background:#161616;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15}
+#tradeBtns button b{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
+#tradeBtns button small{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+#tSell{border:1.5px solid var(--dn);color:var(--dn)} #tBuy{border:1.5px solid var(--bl);color:#5b8cff}
+#tSpread{font-size:12px;color:var(--tx);min-width:26px;text-align:center;font-variant-numeric:tabular-nums}
 #tEx{padding-top:10px}
 @media (orientation:landscape) and (max-height:500px){#nav button{height:42px;flex-direction:row;gap:6px}#subs .sub{height:80px}}
 </style>
@@ -168,7 +171,7 @@ input:focus,select:focus{border-color:var(--bl)}
         <div id="loading"><div class="spin"></div></div>
         <div id="chartMsg"></div>
         <div id="drawHint"></div>
-        <div id="tradeBtns" style="display:none"><button id="tSell" data-t="Продать"></button><button id="tBuy" data-t="Купить"></button></div>
+        <div id="tradeBtns" style="display:none"><button id="tSell"><b id="tBid">—</b><small data-t="Продать"></small></button><span id="tSpread"></span><button id="tBuy"><b id="tAsk">—</b><small data-t="Купить"></small></button></div>
       </div>
       <div id="subs"></div>
     </div>
