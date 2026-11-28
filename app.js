@@ -1,7 +1,7 @@
 /* Fazo Mobile — веб-версия терминала для телефона (PWA).
    Работает без ПК: котировки берёт сам браузер у Binance, Binance Futures, Bybit и cTrader (Open API, JSON через WebSocket). */
 "use strict";
-const VER = "1.5.0";
+const VER = "1.5.1";
 const LWC = window.LightweightCharts;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -15,7 +15,7 @@ const LS = {
 /* ================= язык ================= */
 const EN = {
   "Приложение установлено": "The app is installed", "Откройте эту страницу в Safari": "Open this page in Safari", "Нажмите «Поделиться»": "Tap Share",
-  "Выберите «На экран Домой»": "Choose Add to Home Screen", "Откройте эту страницу в Chrome": "Open this page in Chrome", "Откройте эту страницу на телефоне": "Open this page on your phone",
+  "Выберите «На экран Домой»": "Choose Add to Home Screen", "На iPhone установить можно только из Safari. Если страница открыта внутри Telegram, Instagram или другого приложения — сначала откройте её в Safari.": "On iPhone you can install only from Safari. If the page is open inside Telegram, Instagram or another app, open it in Safari first.", "В Telegram нажмите": "In Telegram tap", "или значок компаса внизу и выберите «Открыть в Safari».": "or the compass icon at the bottom and choose Open in Safari.", "Открыть в Safari": "Open in Safari", "Копировать": "Copy", "В Safari нажмите «Поделиться»": "In Safari tap Share", "— на новых iOS сначала нажмите": "\u2014 on newer iOS first tap", "внизу справа.": "at the bottom right.", "Прокрутите список вниз и выберите «На экран „Домой“». Если пункта нет — в самом низу нажмите «Редактировать действия» и добавьте его.": "Scroll the list down and choose Add to Home Screen. If it's missing, tap Edit Actions at the very bottom and add it.", "Нажмите «Добавить» — Fazo появится на экране телефона.": "Tap Add \u2014 Fazo appears on your home screen.", "Ссылка скопирована — вставьте её в Safari": "Link copied \u2014 paste it into Safari", "Откройте эту страницу в Chrome": "Open this page in Chrome", "Откройте эту страницу на телефоне": "Open this page on your phone",
   "Нажмите меню ⋮ справа вверху": "Tap the ⋮ menu at the top right", "Выберите «Установить приложение» или «Добавить на главный экран»": "Choose Install app or Add to Home screen",
   "Графики, котировки, рисование, алерты и торговля — на главном экране телефона.": "Charts, quotes, drawing, alerts and trading — on your phone's home screen.",   "Всё для теханализа": "Everything for technical analysis", "Настройки графика": "Chart settings", "Снимок графика": "Chart snapshot", "Полный экран": "Fullscreen",
   "Свечи": "Candles", "Рост": "Up", "Падение": "Down", "Внешний вид": "Appearance", "Сетка": "Grid", "Объём": "Volume", "Отсчёт до закрытия свечи": "Countdown to bar close",
@@ -1274,11 +1274,20 @@ function installSheet() {
   let body;
   if (standalone) body = `<p style="text-align:center;font-size:16px">${esc(T("Приложение уже установлено"))} ✓</p>`;
   else if (installEvt) body = `<div class="btns" style="margin:0"><button class="pri" id="instGo" style="height:54px;font-size:17px">${esc(T("Установить приложение"))}</button></div>`;
-  else if (ios) body = `<ol style="line-height:2;font-size:16px;padding-left:22px;margin:0"><li>${esc(T("Откройте эту страницу в Safari"))}</li><li>${esc(T("Нажмите «Поделиться»"))} ${share}</li><li>${esc(T("Выберите «На экран Домой»"))}</li></ol>`;
+  else if (ios) {
+    const dots = '<b style="letter-spacing:1px">•••</b>';
+    body = `<div class="note" style="margin:0 0 10px;padding:10px 12px;border-radius:12px;background:var(--tile);color:var(--tx2);font-size:14px;line-height:1.5">${esc(T("На iPhone установить можно только из Safari. Если страница открыта внутри Telegram, Instagram или другого приложения — сначала откройте её в Safari."))}</div>
+    <ol style="line-height:1.6;font-size:15.5px;padding-left:22px;margin:0">
+      <li style="margin-bottom:8px">${esc(T("В Telegram нажмите"))} ${dots} ${esc(T("или значок компаса внизу и выберите «Открыть в Safari»."))}${`<div class="btns" style="margin-top:8px"><a class="pri" href="x-safari-${esc(location.origin + location.pathname)}?install=1" style="flex:1;height:42px;border-radius:12px;background:var(--bl);color:#fff;font-weight:600;display:flex;align-items:center;justify-content:center;text-decoration:none">${esc(T("Открыть в Safari"))}</a><button id="instCopy">${esc(T("Копировать"))}</button></div>`}</li>
+      <li style="margin-bottom:8px">${esc(T("В Safari нажмите «Поделиться»"))} ${share} ${esc(T("— на новых iOS сначала нажмите"))} ${dots} ${esc(T("внизу справа."))}</li>
+      <li style="margin-bottom:8px">${esc(T("Прокрутите список вниз и выберите «На экран „Домой“». Если пункта нет — в самом низу нажмите «Редактировать действия» и добавьте его."))}</li>
+      <li>${esc(T("Нажмите «Добавить» — Fazo появится на экране телефона."))}</li></ol>`;
+  }
   else body = `<ol style="line-height:2;font-size:16px;padding-left:22px;margin:0"><li>${esc(T(android ? "Откройте эту страницу в Chrome" : "Откройте эту страницу на телефоне"))}</li><li>${esc(T("Нажмите меню ⋮ справа вверху"))}</li><li>${esc(T("Выберите «Установить приложение» или «Добавить на главный экран»"))}</li></ol>`;
   const b = sheet(T("Установка"), `<div id="instSheet" class="card" style="text-align:center"><img src="icons/icon-192.png" alt="" style="width:76px;height:76px;border-radius:18px">
     <h3 style="margin:10px 0 4px;font-size:20px">Fazo</h3><p style="color:var(--mu);margin:0 0 16px">${esc(T("Графики, котировки, рисование, алерты и торговля — на главном экране телефона."))}</p>
     <div style="text-align:left">${body}</div></div>`);
+  const cp = $("#instCopy", b); if (cp) cp.onclick = () => { const u = location.origin + location.pathname + "?install=1"; (navigator.clipboard ? navigator.clipboard.writeText(u) : Promise.reject()).then(() => toast(T("Ссылка скопирована — вставьте её в Safari")), () => prompt("", u)); };
   const g = $("#instGo", b); if (g) g.onclick = () => { const ev = installEvt; ev.prompt(); ev.userChoice.then(c => { if (c.outcome === "accepted") { installEvt = null; closeSheet(); } }).catch(() => {}); };
 }
 function renderSettings() {
