@@ -1,7 +1,7 @@
 /* Fazo Mobile — веб-версия терминала для телефона (PWA).
    Работает без ПК: котировки берёт сам браузер у Binance, Binance Futures, Bybit и cTrader (Open API, JSON через WebSocket). */
 "use strict";
-const VER = "1.3.0";
+const VER = "1.4.0";
 const LWC = window.LightweightCharts;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -14,7 +14,12 @@ const LS = {
 
 /* ================= язык ================= */
 const EN = {
-  "Список котировок": "Watchlist", "Добавить": "Add", "Меню": "Menu", "Интервал": "Interval", "ИЗБРАННОЕ": "FAVORITES", "МИНУТЫ": "MINUTES", "ЧАСЫ": "HOURS", "ДНИ": "DAYS",
+  "Всё для теханализа": "Everything for technical analysis", "Настройки графика": "Chart settings", "Снимок графика": "Chart snapshot", "Полный экран": "Fullscreen",
+  "Свечи": "Candles", "Рост": "Up", "Падение": "Down", "Внешний вид": "Appearance", "Сетка": "Grid", "Объём": "Volume", "Отсчёт до закрытия свечи": "Countdown to bar close",
+  "Логарифмическая шкала": "Logarithmic scale", "Кнопки «Продать / Купить» на графике": "Sell / Buy buttons on chart", "Логотип Fazo на графике": "Fazo logo on chart",
+  "Поведение": "Behavior", "Скрыть панель вкладок": "Hide tab bar", "Скрыть панель вкладок, когда график в горизонтальном режиме.": "Hide the tab bar when the chart is in landscape.",
+  "Вибрация при выборе": "Vibrate on selection", "Часовой пояс": "Time zone", "Время телефона": "Phone time", "UTC+3 (Москва)": "UTC+3 (Moscow)",
+  "UTC+5 (Душанбе, Ташкент)": "UTC+5 (Dushanbe, Tashkent)", "UTC−5 (Нью-Йорк)": "UTC−5 (New York)",   "Список котировок": "Watchlist", "Добавить": "Add", "Меню": "Menu", "Интервал": "Interval", "ИЗБРАННОЕ": "FAVORITES", "МИНУТЫ": "MINUTES", "ЧАСЫ": "HOURS", "ДНИ": "DAYS",
   "Добавьте интервал в избранное при помощи долгого нажатия": "Add an interval to favorites with a long press", "Удалено из избранного": "Removed from favorites", "Добавлено в избранное": "Added to favorites",
   "Индексы": "Indices", "Акции": "Stocks", "Форекс": "Forex", "Металлы и сырьё": "Metals & commodities", "Криптовалюта": "Crypto",
   "Fazo для компьютера": "Fazo for desktop", "Полная версия терминала для Windows: стратегии, ИИ, MT5 и все инструменты.": "The full terminal for Windows: strategies, AI, MT5 and every tool.",
@@ -65,7 +70,7 @@ function applyLang() {
 /* ================= утилиты ================= */
 const TFS = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "1d", "1w", "1M"];
 const TF_SEC = {"1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600, "2h": 7200, "4h": 14400, "1d": 86400, "1w": 604800, "1M": 2592000};
-const TZ = -new Date().getTimezoneOffset() * 60;            // график показывает местное время телефона
+const TZ = (() => { const z = LS.get("tz", "local"); return z === "local" ? -new Date().getTimezoneOffset() * 60 : z === "utc" ? 0 : +z * 3600; })();            // график показывает местное время телефона
 const decOf = arr => {                                       // точность цены по строкам биржи
   let d = 0;
   for (const s of arr) { const t = String(s).replace(/0+$/, ""); const i = t.indexOf("."); if (i >= 0) d = Math.max(d, t.length - i - 1); }
@@ -611,8 +616,9 @@ function mkMain() {
   if (G.main) { G.chart.removeSeries(G.main); G.main = null; }
   if (G.vol) { G.chart.removeSeries(G.vol); G.vol = null; }
   const pf = {type: "price", precision: G.dig, minMove: +(1 / 10 ** G.dig).toFixed(G.dig)};
-  const cs = {upColor: "#089981", downColor: "#f23645", borderVisible: false, wickUpColor: "#089981", wickDownColor: "#f23645", priceFormat: pf};
-  if (S.type === "bars") G.main = G.chart.addBarSeries({upColor: "#089981", downColor: "#f23645", thinBars: false, priceFormat: pf});
+  const U = CUP(), D = CDN();
+  const cs = {upColor: U, downColor: D, borderVisible: false, wickUpColor: U, wickDownColor: D, priceFormat: pf};
+  if (S.type === "bars") G.main = G.chart.addBarSeries({upColor: U, downColor: D, thinBars: false, priceFormat: pf});
   else if (S.type === "line") G.main = G.chart.addLineSeries({color: "#2962ff", lineWidth: 2, priceFormat: pf});
   else if (S.type === "area") G.main = G.chart.addAreaSeries({lineColor: "#2962ff", topColor: "rgba(41,98,255,.35)", bottomColor: "rgba(41,98,255,0)", lineWidth: 2, priceFormat: pf});
   else G.main = G.chart.addCandlestickSeries(cs);
@@ -633,7 +639,7 @@ const toPt = (b, i) => {
   if (S.type === "ha") { const h = G.HA[i]; return {time: t, open: h.open, high: h.high, low: h.low, close: h.close}; }
   return {time: t, open: b.open, high: b.high, low: b.low, close: b.close};
 };
-const volPt = b => ({time: b.time + TZ, value: b.volume, color: b.close >= b.open ? "rgba(8,153,129,.45)" : "rgba(242,54,69,.45)"});
+const volPt = b => ({time: b.time + TZ, value: b.volume, color: (b.close >= b.open ? CUP() : CDN()) + "73"});
 
 function renderAll(keepRange) {
   const r = keepRange ? G.chart.timeScale().getVisibleLogicalRange() : null;
@@ -716,18 +722,6 @@ function updateIndsLast() {                                      // при но�
 }
 
 /* ---- легенда ---- */
-function legend(p) {
-  const n = G.B.length; if (!n) { $("#legend").innerHTML = ""; return; }
-  let b = G.B[n - 1], i = n - 1;
-  if (p && p.time) { const t = p.time - TZ; i = G.B.findIndex(x => x.time === t); if (i >= 0) b = G.B[i]; else i = n - 1; }
-  const pb = G.B[i - 1], ch = pb ? (b.close - pb.close) / pb.close * 100 : 0, cls = b.close >= b.open ? "up" : "dn", d = G.dig;
-  const [src, sym] = splitKey(S.sym);
-  const il = S.inds.filter(x => IND[x.k] && !IND[x.k].pane).map(x => `<span style="color:${x.c || IND[x.k].c}">${IND[x.k].n} ${Object.values(Object.assign({}, IND[x.k].p, x.p)).join(" ")}</span>`).join(" · ");
-  $("#legend").innerHTML = `<div class="t">${esc(symInfo(S.sym).show)} <small>· ${S.tf} · ${SRC_TAG[src] || src}</small></div>
-    <div class="o">O<b class="${cls}"> ${fmt(b.open, d)}</b> H<b class="${cls}"> ${fmt(b.high, d)}</b> L<b class="${cls}"> ${fmt(b.low, d)}</b> C<b class="${cls}"> ${fmt(b.close, d)}</b>
-    <b class="${ch >= 0 ? "up" : "dn"}"> ${ch >= 0 ? "+" : ""}${ch.toFixed(2)}%</b>${S.vol ? ` · V <b>${fmtVol(b.volume)}</b>` : ""}</div>${il ? `<div class="il">${il}</div>` : ""}`;
-}
-
 /* ---- загрузка ---- */
 function chartMsg(html, btn, fn) {
   const m = $("#chartMsg");
@@ -741,7 +735,7 @@ async function loadChart() {
   if (G.unK) { G.unK(); G.unK = null; }
   G.more = false; G.noMore = false; G.B = [];
   const [src, sym] = splitKey(S.sym), S0 = SRC[src];
-  $("#symTxt").textContent = symInfo(S.sym).show; $("#srcTxt").textContent = SRC_TAG[src] || src; $("#tfBtn").textContent = S.tf;
+  $("#symTxt").textContent = symInfo(S.sym).show; $("#tfBtn").textContent = tfLabel(S.tf);
   if (typeof TR !== "undefined") { TR.chartBtns(); TR.chartLines(); }
   chartMsg(null); $("#loading").classList.add("on");
   if (G.main) G.main.setData([]); if (G.vol) G.vol.setData([]); clearInds(); if (typeof DR !== "undefined") DR.load(); legend(null);
@@ -953,7 +947,8 @@ function applyTheme() {
   const lt = isLight(), c = THEMES[lt ? "light" : "dark"];
   document.documentElement.classList.toggle("light", lt);
   const mt = document.querySelector('meta[name="theme-color"]'); if (mt) mt.content = c.bg;
-  const o = {layout: {background: {type: "solid", color: c.bg}, textColor: c.tx}, grid: {vertLines: {color: c.grid}, horzLines: {color: c.grid}},
+  const gc = LS.get("grid", true) ? c.grid : "rgba(0,0,0,0)";
+  const o = {layout: {background: {type: "solid", color: c.bg}, textColor: c.tx}, grid: {vertLines: {color: gc}, horzLines: {color: gc}},
     rightPriceScale: {borderColor: c.bd}, timeScale: {borderColor: c.bd},
     crosshair: {vertLine: {labelBackgroundColor: c.lab}, horzLine: {labelBackgroundColor: c.lab}}};
   Object.assign(CH_OPT.layout, o.layout); CH_OPT.grid = o.grid;
@@ -982,7 +977,6 @@ function go(id) {
   closeMenu();
   $$(".page").forEach(p => p.classList.toggle("on", p.id === id));
   $$("#nav button").forEach(b => b.classList.toggle("on", b.dataset.p === id));
-  $("#top").style.display = id === "pgChart" ? "" : "none";
   LS.set("page", id);
   if (id === "pgWatch") renderWatch();
   if (id === "pgAlerts") renderAlerts();
@@ -1035,7 +1029,7 @@ function tfSheet() {
 /* долгое нажатие + обычное нажатие */
 function longPress(el, onLong, onTap) {
   let t = null, fired = false, sx = 0, sy = 0;
-  el.addEventListener("pointerdown", e => { fired = false; sx = e.clientX; sy = e.clientY; t = setTimeout(() => { fired = true; try { navigator.vibrate && navigator.vibrate(20); } catch (x) {} onLong(); }, 550); });
+  el.addEventListener("pointerdown", e => { fired = false; sx = e.clientX; sy = e.clientY; t = setTimeout(() => { fired = true; try { LS.get("vib", true) && navigator.vibrate && navigator.vibrate(20); } catch (x) {} onLong(); }, 550); });
   el.addEventListener("pointermove", e => { if (t && Math.hypot(e.clientX - sx, e.clientY - sy) > 10) { clearTimeout(t); t = null; } });
   ["pointerup", "pointercancel", "pointerleave"].forEach(ev => el.addEventListener(ev, () => { clearTimeout(t); t = null; }));
   el.addEventListener("contextmenu", e => e.preventDefault());
@@ -1206,7 +1200,12 @@ const MI = {
   trade: '<svg viewBox="0 0 24 24"><path d="m4 15 5-5 4 4 7-7"/><path d="M15 7h5v5"/></svg>',
   site: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
   tg: '<svg viewBox="0 0 24 24"><path d="m21 4-18 7 6 2 2 6 3-4 5 4z"/><path d="m9 13 8-6"/></svg>',
-  list: '<svg viewBox="0 0 24 24"><path d="M5 4h14v16l-7-4-7 4z"/></svg>'
+  list: '<svg viewBox="0 0 24 24"><path d="M5 4h14v16l-7-4-7 4z"/></svg>',
+  gear: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>',
+  cam: '<svg viewBox="0 0 24 24"><path d="M4 8h4l2-3h4l2 3h4v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+  full: '<svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>',
+  layers: '<svg viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg>',
+  clock: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
 };
 let installEvt = null;
 window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; });
@@ -1220,7 +1219,8 @@ function renderSettings() {
   <div class="mgrid" style="margin-top:12px"><button data-m="trade" style="grid-column:span 2;border:1px solid transparent;background:linear-gradient(var(--sh),var(--sh)) padding-box,linear-gradient(90deg,#f7525f,#2962ff) border-box">${MI.trade}${esc(T("Торгуйте со своим брокером"))}</button></div>
   <div class="sec">${esc(T("ИНСТРУМЕНТЫ"))}</div>
   <div class="mgrid"><button data-m="ind">${MI.ind}${esc(T("Индикаторы"))}</button><button data-m="draw">${MI.draw}${esc(T("Объекты рисования"))}</button>
-    <button data-m="alert">${MI.alert}${esc(T("Оповещения"))}</button><button data-m="type">${MI.type}${esc(T("Тип графика"))}</button></div>
+    <button data-m="alert">${MI.alert}${esc(T("Оповещения"))}</button><button data-m="type">${MI.type}${esc(T("Тип графика"))}</button>
+    <button data-m="cset" style="grid-column:span 2">${MI.gear}${esc(T("Настройки графика"))}</button></div>
   <div class="sec">${esc(T("Подключение cTrader"))}</div>
   <div class="card">
     <label>${esc(T("Сервер"))}</label><div class="seg" id="ctLive"><button data-v="0" class="${!c.live ? "on" : ""}">${esc(T("Демо"))}</button><button data-v="1" class="${c.live ? "on" : ""}">${esc(T("Реальный"))}</button></div>
@@ -1253,6 +1253,7 @@ function renderSettings() {
     if (m === "draw") { go("pgChart"); DR.menu(); }
     if (m === "alert") go("pgAlerts");
     if (m === "type") { go("pgChart"); typeSheet(); }
+    if (m === "cset") chartSettings();
   });
   let live = !!c.live;
   $$("#ctLive button", L).forEach(e => e.onclick = () => { live = e.dataset.v === "1"; $$("#ctLive button", L).forEach(x => x.classList.toggle("on", x === e)); });
@@ -1307,16 +1308,126 @@ function renderAlerts() {
 
 CT.onStatus = () => { const e = $("#ctSt"); if (e) { e.textContent = CT.status; e.className = "st " + (CT.stCls || ""); } };
 
+/* ================= график в стиле TradingView ================= */
+const CUP = () => LS.get("cUp", "#089981"), CDN = () => LS.get("cDn", "#f23645");
+function legend(p) {
+  const n = G.B.length, L = $("#legend"); if (!n) { L.innerHTML = ""; return; }
+  let b = G.B[n - 1], i = n - 1;
+  if (p && p.time) { const t = p.time - TZ; const j = G.B.findIndex(x => x.time === t); if (j >= 0) { b = G.B[j]; i = j; } }
+  const d = G.dig, inf = symInfo(S.sym), src = splitKey(S.sym)[0];
+  const il = S.inds.filter(x => IND[x.k] && !IND[x.k].pane).map(x => `<span style="color:${x.c || IND[x.k].c}">${IND[x.k].n} ${Object.values(Object.assign({}, IND[x.k].p, x.p)).join(" ")}</span>`).join(" · ");
+  let line2;
+  if (p && p.time) {
+    const cls = b.close >= b.open ? "up" : "dn";
+    line2 = `<div class="o" style="color:var(--mu)">O<b class="${cls}"> ${nf(b.open, d)}</b> H<b class="${cls}"> ${nf(b.high, d)}</b> L<b class="${cls}"> ${nf(b.low, d)}</b> C<b class="${cls}"> ${nf(b.close, d)}</b>${S.vol ? ` V <b>${fmtVol(b.volume)}</b>` : ""}</div>`;
+  } else {
+    const q = Q[S.sym], ref = q && q.chg != null ? q.last / (1 + q.chg / 100) : (G.B[n - 2] || b).close, last = b.close, ch = last - ref, pc = ref ? ch / ref * 100 : 0, s = ch >= 0 ? "+" : "−";
+    line2 = `<div class="p ${ch >= 0 ? "up" : "dn"}">${nf(last, d)} ${s}${nf(Math.abs(ch), d)} (${s}${nf(Math.abs(pc), 2)}%)</div>`;
+  }
+  L.innerHTML = `<div class="t" id="lgT">${symIcon(S.sym)}<span>${esc(inf.desc || inf.show)}</span><small>· ${tfLabel(S.tf)} · ${esc(SRC_TAG[src] || src)}</small></div>${line2}${il ? `<div class="il">${il}</div>` : ""}`;
+  $("#lgT").onclick = () => searchSheet("open");
+}
+/* отсчёт до закрытия свечи под меткой цены */
+function cdownTick() {
+  const e = $("#cdown");
+  if (!LS.get("cdown", true) || !G.main || !G.B.length || !$("#pgChart").classList.contains("on")) { e.style.display = "none"; return; }
+  const L = G.B[G.B.length - 1], sec = TF_SEC[S.tf], r = Math.floor(L.time + sec - Date.now() / 1000);
+  const y = G.main.priceToCoordinate(L.close), h = $("#chart").clientHeight - G.chart.timeScale().height();
+  if (r <= 0 || r > sec || y == null || y < 0 || y > h - 30) { e.style.display = "none"; return; }
+  const dd = Math.floor(r / 86400), hh = Math.floor(r % 86400 / 3600), mm = Math.floor(r % 3600 / 60), ss = r % 60, z = v => String(v).padStart(2, "0");
+  e.textContent = dd ? `${dd}${LANG === "ru" ? "д" : "d"} ${z(hh)}:${z(mm)}` : hh ? `${z(hh)}:${z(mm)}:${z(ss)}` : `${z(mm)}:${z(ss)}`;
+  e.style.background = L.close >= L.open ? CUP() : CDN();
+  e.style.width = G.chart.priceScale("right").width() + "px"; e.style.top = (y + 9) + "px"; e.style.display = "block";
+}
+setInterval(cdownTick, 500);
+/* полный экран */
+function toggleFull() {
+  const a = $("#app"), on = !a.classList.contains("full");
+  a.classList.toggle("full", on);
+  try { if (on && document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {}); else if (!on && document.fullscreenElement) document.exitFullscreen(); } catch (e) {}
+}
+document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement) $("#app").classList.remove("full"); });
+/* снимок графика */
+async function snapshot() {
+  try {
+    const c = G.chart.takeScreenshot(), out = document.createElement("canvas"), dc = $("#drawCv");
+    out.width = c.width; out.height = c.height; const x = out.getContext("2d");
+    x.drawImage(c, 0, 0); if (dc) x.drawImage(dc, 0, 0);
+    const k = c.width / $("#chart").clientWidth, inf = symInfo(S.sym);
+    x.fillStyle = isLight() ? "#131722" : "#fff"; x.font = `${15 * k}px sans-serif`; x.fillText(`${inf.show} · ${tfLabel(S.tf)} · Fazo`, 10 * k, 22 * k);
+    const blob = await new Promise(r => out.toBlob(r, "image/png")), file = new File([blob], `fazo-${inf.show}-${S.tf}.png`, {type: "image/png"});
+    if (navigator.canShare && navigator.canShare({files: [file]})) await navigator.share({files: [file], title: "Fazo"});
+    else { const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = file.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); }
+  } catch (e) { if (e && e.name !== "AbortError") toast("⚠ " + (e.message || e)); }
+}
+/* «Всё для теханализа» */
+function moreSheet() {
+  const b = sheet(T("Всё для теханализа"), `
+    <div class="mgrid c3"><button class="o" data-m="cset">${MI.gear}${esc(T("Настройки графика"))}</button><button class="o" data-m="shot">${MI.cam}${esc(T("Снимок графика"))}</button><button class="o" data-m="full">${MI.full}${esc(T("Полный экран"))}</button></div>
+    <div class="mgrid" style="margin-top:12px"><button data-m="trade" style="grid-column:span 2;border:1px solid transparent;background:linear-gradient(var(--sh),var(--sh)) padding-box,linear-gradient(90deg,#f7525f,#2962ff) border-box">${MI.trade}${esc(T("Торгуйте со своим брокером"))}</button></div>
+    <div class="sec">${esc(T("ИНСТРУМЕНТЫ"))}</div>
+    <div class="mgrid"><button data-m="ind">${MI.ind}${esc(T("Индикаторы"))}</button><button data-m="draw">${MI.draw}${esc(T("Объекты рисования"))}</button>
+      <button data-m="alert">${MI.alert}${esc(T("Оповещения"))}</button><button data-m="type">${MI.type}${esc(T("Тип графика"))}</button>
+      <button data-m="tree">${MI.layers}${esc(T("Дерево объектов"))}</button><button data-m="tf">${MI.clock}${esc(T("Интервал"))}</button></div><div style="height:12px"></div>`);
+  $$("[data-m]", b).forEach(e => e.onclick = () => {
+    const m = e.dataset.m; closeSheet();
+    ({cset: chartSettings, shot: snapshot, full: toggleFull, trade: () => go("pgTrade"), ind: indSheet, draw: () => DR.menu(), alert: () => alertSheet(), type: typeSheet, tree: () => DR.tree(), tf: tfSheet})[m]();
+  });
+}
+/* настройки графика */
+const CPRESET = [["#089981", "#f23645", "TradingView"], ["#26a69a", "#ef5350", "Classic"], ["#2962ff", "#e91e63", "Blue / Pink"], ["#f5f5f5", "#787b86", "Mono"]];
+const TZS = [["local", "Время телефона"], ["utc", "UTC"], ["3", "UTC+3 (Москва)"], ["5", "UTC+5 (Душанбе, Ташкент)"], ["-5", "UTC−5 (Нью-Йорк)"]];
+function applyChartPrefs() {
+  document.documentElement.classList.toggle("hidenav", LS.get("hidenav", false));
+  const wm = $("#flogo"); if (wm) wm.style.display = LS.get("wm", true) ? "" : "none";
+  if (G.chart) G.chart.priceScale("right").applyOptions({mode: LS.get("logs", false) ? 1 : 0});
+  if (typeof TR !== "undefined") TR.chartBtns();
+  applyTheme();
+}
+function chartSettings() {
+  const sw = (k, def, label, note) => `<button class="opt" data-k="${k}" style="height:auto;min-height:56px;padding:10px 18px"><span style="flex:1"><span style="display:block">${esc(T(label))}</span>${note ? `<small style="color:var(--mu);font-size:13px;line-height:1.3">${esc(T(note))}</small>` : ""}</span><span class="sw ${LS.get(k, def) ? "on" : ""}"></span></button>`;
+  const tz = LS.get("tz", "local"), up = CUP(), dn = CDN();
+  const b = sheet(T("Настройки графика"), `
+    <div class="sec" style="padding-top:4px">${esc(T("Свечи"))}</div>
+    <div class="card"><div style="display:flex;gap:10px;flex-wrap:wrap">${CPRESET.map(([u, d, n], i) => `<button data-cp="${i}" style="flex:1;min-width:70px;height:56px;border-radius:12px;background:var(--tile);border:2px solid ${u === up && d === dn ? "var(--bl)" : "transparent"};display:flex;align-items:center;justify-content:center;gap:4px">
+      <i style="width:8px;height:26px;background:${u};border-radius:2px;display:block"></i><i style="width:8px;height:18px;background:${d};border-radius:2px;display:block"></i><small style="margin-left:4px;font-size:11px;color:var(--mu)">${n}</small></button>`).join("")}</div>
+      <div style="display:flex;gap:12px;margin-top:12px;align-items:center"><span style="color:var(--mu);font-size:13px">${esc(T("Рост"))}</span><input type="color" id="cUp" value="${up}" style="width:46px;height:34px;padding:0">
+        <span style="color:var(--mu);font-size:13px">${esc(T("Падение"))}</span><input type="color" id="cDn" value="${dn}" style="width:46px;height:34px;padding:0"></div></div>
+    <div class="sec">${esc(T("Внешний вид"))}</div>
+    <div class="card" style="padding:4px 0">${sw("grid", true, "Сетка")}${sw("vol", S.vol, "Объём")}${sw("cdown", true, "Отсчёт до закрытия свечи")}${sw("logs", false, "Логарифмическая шкала")}
+      ${sw("tbtn", true, "Кнопки «Продать / Купить» на графике")}${sw("wm", true, "Логотип Fazo на графике")}</div>
+    <div class="sec">${esc(T("Поведение"))}</div>
+    <div class="card" style="padding:4px 0">${sw("hidenav", false, "Скрыть панель вкладок", "Скрыть панель вкладок, когда график в горизонтальном режиме.")}${sw("vib", true, "Вибрация при выборе")}</div>
+    <div class="sec">${esc(T("Часовой пояс"))}</div>
+    <div class="card" style="padding:4px 0">${TZS.map(([k, n]) => `<button class="opt ${k === tz ? "on" : ""}" data-tz="${k}">${esc(T(n))}${k === tz ? '<span class="r">✓</span>' : ""}</button>`).join("")}</div><div style="height:10px"></div>`);
+  $$("[data-k]", b).forEach(e => e.onclick = () => {
+    const k = e.dataset.k;
+    if (k === "vol") { S.vol = !S.vol; save("vol"); mkMain(); renderAll(); }
+    else LS.set(k, !LS.get(k, ["grid", "cdown", "tbtn", "wm", "vib"].includes(k)));
+    $(".sw", e).classList.toggle("on"); applyChartPrefs();
+  });
+  const setC = (u, d) => { LS.set("cUp", u); LS.set("cDn", d); if (G.B.length) { mkMain(); renderAll(true && 0); } chartSettings(); };
+  $$("[data-cp]", b).forEach(e => e.onclick = () => { const p = CPRESET[+e.dataset.cp]; setC(p[0], p[1]); });
+  $("#cUp", b).onchange = e => setC(e.target.value, CDN());
+  $("#cDn", b).onchange = e => setC(CUP(), e.target.value);
+  $$("[data-tz]", b).forEach(e => e.onclick = () => { LS.set("tz", e.dataset.tz); location.reload(); });
+}
+
 /* ================= запуск ================= */
 function boot() {
   applyLang();
   initChart();
   applyTheme();
+  setTimeout(applyChartPrefs, 0);
   $("#symBtn").onclick = () => searchSheet("open");
   $("#tfBtn").onclick = tfSheet;
   $("#typeBtn").onclick = typeSheet;
   $("#indBtn").onclick = indSheet;
-  $("#drawBtn").onclick = () => DR.menu();
+  $("#drawBtn").onclick = () => DR.mode();
+  $("#treeBtn").onclick = () => DR.tree();
+  $("#moreBtn").onclick = moreSheet;
+  $("#undoBtn").onclick = () => DR.undo(); $("#redoBtn").onclick = () => DR.redo();
+  $("#fullBtn").onclick = toggleFull; $("#dFull").onclick = toggleFull;
   $("#alertBtn").onclick = () => alertSheet();
   $("#wAdd").onclick = () => searchSheet("add");
   $("#wListBtn").onclick = e => { e.stopPropagation(); if (wEdit) { wEdit = false; renderWatch(); } else watchMenu(e.currentTarget); };

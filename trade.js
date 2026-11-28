@@ -395,7 +395,7 @@ const TR = (() => {
   }
   function chartBtns() {
     const [e, sym] = splitKey(S.sym), on = !!EXS[e];
-    $("#tradeBtns").style.display = on ? "" : "none";
+    $("#tradeBtns").style.display = on && LS.get("tbtn", true) ? "" : "none";
     if (bookKey === S.sym) { placeBtns(); return; }
     if (book) { book.close(); book = null; }
     bookKey = S.sym; paintBook(null, null);

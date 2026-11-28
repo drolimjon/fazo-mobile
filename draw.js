@@ -3,6 +3,9 @@
    поэтому рисунки остаются на месте при прокрутке, масштабе и смене таймфрейма. */
 "use strict";
 Object.assign(EN, {
+  "Настройки": "Settings", "Толщина": "Thickness", "Стиль линии": "Line style", "Заливка": "Fill", "Продлить влево": "Extend left", "Продлить вправо": "Extend right",
+  "Зафиксировать": "Lock", "Скрыть": "Hide", "Координаты": "Coordinates", "Клонировать": "Clone", "Дерево объектов": "Object tree",
+  "На этом графике нет рисунков": "There are no drawings on this chart", "вкл.": "on", "выкл.": "off",
   "Линия тренда": "Trend line", "Линия данных": "Data line", "Удлинённая линия": "Extended line", "Перекрещенные линии": "Cross lines", "Вилы": "Pitchfork",
   "Фиксированный Квадрат Ганна": "Gann square fixed", "Импульсная волна Эллиотта": "Elliott impulse wave", "Коррекционная волна Эллиотта": "Elliott correction wave",
   "Треугольник в волнах Эллиотта": "Elliott triangle wave", "Двойная комбинация Эллиотта": "Elliott double combo wave", "Тройная комбинация Эллиотта": "Elliott triple combo wave",
@@ -59,7 +62,7 @@ const DR = (() => {
   if (opt.mag === true) opt.mag = "weak"; if (opt.mag === false) opt.mag = "off";
   const saveOpt = () => LS.set("drOpt", opt);
   const key = () => "dr:" + S.sym;
-  const save = () => { LS.set(key(), list.filter(d => !d.temp)); dirty = true; };
+  const save = () => { LS.set(key(), list.filter(d => !d.temp)); dirty = true; track(); };
   const uid = () => "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
   /* ---------- координаты: время/цена <-> пиксели ---------- */
@@ -302,7 +305,7 @@ const DR = (() => {
   }
   const ratio = (a, b) => { const r = Math.abs(a / b); return isFinite(r) ? r.toFixed(3) : "—"; };
   const R = {
-    trend(d, P) { stroke(d.col, d.w, d.ls); seg(P[0], P[1]); },
+    trend(d, P) { stroke(d.col, d.w, d.ls); if (d.extL || d.extR) { const [a, b] = extend(P[0], P[1], d.extL, d.extR); seg(a, b); } else seg(P[0], P[1]); if (d.text) text(d.text, (P[0].x + P[1].x) / 2, (P[0].y + P[1].y) / 2 - 6, {col: d.col, size: 12, align: "center", base: "bottom", hit: false}); },
     ray(d, P) { stroke(d.col, d.w, d.ls); const [a, b] = extend(P[0], P[1], false, true); seg(a, b); },
     ext(d, P) { stroke(d.col, d.w, d.ls); const [a, b] = extend(P[0], P[1], true, true); seg(a, b); },
     info(d, P) {
@@ -784,7 +787,7 @@ const DR = (() => {
     if (!G.main || !G.B.length) { ctx.clearRect(0, 0, cv.width, cv.height); return; }
     ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
     hits.clear();
-    if (!opt.hide) for (const d of list) if (d !== tmp) drawOne(d, false);
+    if (!opt.hide) for (const d of list) if (d !== tmp && !d.hid) drawOne(d, false);
     if (tmp) drawOne(tmp, true);
   }
   function frame() {
@@ -804,7 +807,7 @@ const DR = (() => {
   }
   function inPoly(p, pts) { let c = false; for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const a = pts[i], b = pts[j]; if ((a.y > p.y) !== (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) c = !c; } return c; }
   function hitTest(p) {
-    let best = null, bd = 14;
+    let best = null, bd = 22;
     for (let i = list.length - 1; i >= 0; i--) {
       const d = list[i], hs = hits.get(d.id); if (!hs) continue;
       for (const h of hs) {
@@ -838,10 +841,11 @@ const DR = (() => {
     return {id: uid(), type, pts: [], col: last.col || o.col || "#2962ff", w: last.w || o.w || 2, ls: last.ls || "s", fill: last.fill != null ? last.fill : !!o.fill, text: ""};
   }
   function setTool(type) {
+    if (type && TL[type] && TL[type][1] !== "X") { const r = LS.get("drRecent", []).filter(k => k !== type); r.unshift(type); LS.set("drRecent", r.slice(0, 8)); }
+    if (type && !mode) { mode = true; $("#ctbN").style.display = "none"; $("#ctbD").style.display = ""; }
     tool = type; tmp = null; sel = null; drag = null;
     cv.style.pointerEvents = type ? "auto" : "none";
-    $("#drawBtn").classList.toggle("on", !!type);
-    hint(); bar(); dirty = true;
+    hint(); bar(); paintTool(); dirty = true;
   }
   function hint() {
     const h = $("#drawHint");
@@ -890,6 +894,10 @@ const DR = (() => {
     e.preventDefault(); cv.setPointerCapture(e.pointerId);
     const p = pos(e); down = {p, moved: false};
     if (tool === "eraser") { const d = hitTest(p); if (d) { list = list.filter(x => x !== d); save(); toast(T("Рисунок удалён")); } down = null; return; }
+    if (tool && !tmp && tool !== "brush" && tool !== "marker") {
+      const hd = hitTest(p);
+      if (hd) { tool = null; hint(); paintTool(); sel = hd; cv.style.pointerEvents = "auto"; bar(); dirty = true; down = null; vib(); return; }
+    }
     if (tool) {
       const n = tdef(tool)[0];
       if (!tmp) tmp = newDraw(tool);
@@ -947,22 +955,23 @@ const DR = (() => {
   function onChartClick(p) {
     if (tool || !p || !p.point) return;
     const d = hitTest(p.point);
-    if (d) { sel = d; cv.style.pointerEvents = "auto"; bar(); dirty = true; if (d.type === "pin") { d.show = !d.show; } }
+    if (d) { sel = d; cv.style.pointerEvents = "auto"; bar(); dirty = true; vib(); if (d.type === "pin") { d.show = !d.show; } }
   }
   function deselect() { sel = null; drag = null; cv.style.pointerEvents = "none"; bar(); dirty = true; }
 
   /* ---------- панель выбранного рисунка ---------- */
   const PAL = ["#2962ff", "#089981", "#f23645", "#ff9800", "#f5c542", "#9c27b0", "#00bcd4", "#e91e63", "#4caf50", "#ffffff", "#787b86", "#000000"];
   const barEl = document.createElement("div"); barEl.id = "drBar"; wrap.appendChild(barEl);
+  const GEAR = '<svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg>';
   function bar() {
     if (!sel || tool) { barEl.classList.remove("on"); return; }
-    const d = sel, o = topt(d.type);
+    const d = sel;
     barEl.innerHTML = `<button data-a="col"><i style="background:${d.col}"></i></button>
-      <button data-a="w">${d.w}px</button>
+      <button data-a="w" style="font-size:13px">${d.w}px</button>
       <button data-a="ls">${d.ls === "d" ? "╌" : d.ls === "o" ? "┈" : "—"}</button>
-      ${o.fill !== undefined ? `<button data-a="fill" class="${d.fill ? "on" : ""}">▧</button>` : ""}
-      ${o.txt || d.type === "rect" || d.type === "arrowup" || d.type === "arrowdn" ? `<button data-a="txt">T</button>` : ""}
-      <button data-a="dup">⧉</button><button data-a="lock" class="${d.lock ? "on" : ""}">${d.lock ? "🔒" : "🔓"}</button>
+      <button data-a="set">${GEAR}</button>
+      <button data-a="lock" class="${d.lock ? "on" : ""}">${d.lock ? "🔒" : "🔓"}</button>
+      <button data-a="dup">⧉</button>
       <button data-a="del" style="color:var(--dn)">🗑</button><button data-a="x">✕</button>
       <div id="drPal" style="display:none">${PAL.map(c => `<b data-c="${c}" style="background:${c}"></b>`).join("")}</div>`;
     barEl.classList.add("on");
@@ -970,21 +979,20 @@ const DR = (() => {
     $$("button", barEl).forEach(b => b.onclick = ev => {
       ev.stopPropagation(); const a = b.dataset.a;
       if (a === "col") { const p = $("#drPal", barEl); p.style.display = p.style.display === "none" ? "flex" : "none"; return; }
+      if (a === "set") return settingsSheet(d);
       if (a === "w") d.w = d.w >= 4 ? 1 : d.w + 1;
       if (a === "ls") d.ls = d.ls === "s" ? "d" : d.ls === "d" ? "o" : "s";
-      if (a === "fill") d.fill = !d.fill;
-      if (a === "txt") return askText(d.text, s => { d.text = s; save(); bar(); });
-      if (a === "dup") { const c = JSON.parse(JSON.stringify(d)); c.id = uid(); c.lock = false; c.pts = c.pts.map(q => { const o2 = XY(q); return o2.x == null ? q : toPt(o2.x + 24, o2.y + 24); }); list.push(c); sel = c; }
+      if (a === "dup") return clone(d);
       if (a === "lock") d.lock = !d.lock;
       if (a === "del") { list = list.filter(x => x !== d); save(); deselect(); toast(T("Рисунок удалён")); return; }
       if (a === "x") { deselect(); return; }
-      if (a === "w" || a === "ls" || a === "fill") style();
+      if (a === "w" || a === "ls") style();
       save(); bar();
     });
     $$("#drPal b", barEl).forEach(b => b.onclick = ev => { ev.stopPropagation(); d.col = b.dataset.c; style(); save(); bar(); });
   }
   function askText(def, cb) {
-    const b = sheet(T("Введите текст"), `<div class="card"><textarea id="drTxt" rows="3" style="width:100%;font:inherit;color:var(--tx);background:#0c0c0c;border:1px solid var(--bd);border-radius:8px;padding:10px">${esc(def || "")}</textarea>
+    const b = sheet(T("Введите текст"), `<div class="card"><textarea id="drTxt" rows="3" style="width:100%;font:inherit;color:var(--tx);background:var(--inp);border:1px solid var(--bd);border-radius:10px;padding:10px">${esc(def || "")}</textarea>
       <div class="btns"><button class="pri" id="drTxtOk">${esc(T("Готово"))}</button></div></div>`);
     $("#drTxtOk", b).onclick = () => { const s = $("#drTxt", b).value; closeSheet(); cb(s); };
     setTimeout(() => $("#drTxt", b).focus(), 250);
@@ -1045,7 +1053,6 @@ const DR = (() => {
     ];
   }
   function menu() {
-    if (tool) { setTool(null); return; }
     let tab = LS.get("drTab", "lines"), q = "";
     const b = sheet(T("Объекты рисования"), `<div class="dsrch"><svg class="i" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg><input id="dQ" placeholder="${esc(T("Поиск"))}" autocomplete="off"></div>
       <div class="dtabs" id="dTabs">${TABS.map(([k, n]) => `<button data-tab="${k}" class="${k === tab ? "on" : ""}">${esc(T(n))}</button>`).join("")}</div><div class="scr" id="dScr"></div>`);
@@ -1081,6 +1088,108 @@ const DR = (() => {
     const on = $("#dTabs .on", b); if (on) on.scrollIntoView({inline: "center", block: "nearest"});
   }
 
+  /* ---------- настройки выбранного рисунка ---------- */
+  const EXTENDABLE = {trend: 1, info: 1, angle: 1, arrow: 1};
+  function settingsSheet(d) {
+    const o = topt(d.type), b = sheet(T("Настройки") + " · " + T(tdef(d.type)[2]), "");
+    const draw = () => {
+      const pts = d.pts.filter(q => q.p != null);
+      b.innerHTML = `<div class="card"><label>${esc(T("Цвет"))}</label><div style="display:flex;flex-wrap:wrap;gap:10px">${PAL.map(c => `<b data-c="${c}" style="width:34px;height:34px;border-radius:50%;display:block;background:${c};border:${c === d.col ? "3px solid var(--bl)" : "1px solid var(--mu)"}"></b>`).join("")}
+        <input type="color" id="sCol" value="${/^#[0-9a-f]{6}$/i.test(d.col) ? d.col : "#2962ff"}" style="width:34px;height:34px;padding:0;border-radius:50%;border:1px solid var(--mu)"></div>
+        <label>${esc(T("Толщина"))}</label><div class="seg" id="sW">${[1, 2, 3, 4].map(w => `<button data-w="${w}" class="${d.w === w ? "on" : ""}">${w}px</button>`).join("")}</div>
+        <label>${esc(T("Стиль линии"))}</label><div class="seg" id="sLs">${[["s", "———"], ["d", "– – –"], ["o", "· · · ·"]].map(([k, n]) => `<button data-l="${k}" class="${d.ls === k ? "on" : ""}">${n}</button>`).join("")}</div></div>
+      <div class="card" style="padding:4px 0">
+        ${o.fill !== undefined ? `<button class="opt" data-t="fill">${esc(T("Заливка"))}<span class="sw ${d.fill ? "on" : ""}" style="margin-left:auto"></span></button>` : ""}
+        ${EXTENDABLE[d.type] ? `<button class="opt" data-t="extL">${esc(T("Продлить влево"))}<span class="sw ${d.extL ? "on" : ""}" style="margin-left:auto"></span></button>
+          <button class="opt" data-t="extR">${esc(T("Продлить вправо"))}<span class="sw ${d.extR ? "on" : ""}" style="margin-left:auto"></span></button>` : ""}
+        <button class="opt" data-t="lock">${esc(T("Зафиксировать"))}<span class="sw ${d.lock ? "on" : ""}" style="margin-left:auto"></span></button>
+        <button class="opt" data-t="hid">${esc(T("Скрыть"))}<span class="sw ${d.hid ? "on" : ""}" style="margin-left:auto"></span></button></div>
+      ${o.txt || d.type === "rect" || d.type === "arrowup" || d.type === "arrowdn" || d.type === "trend" ? `<div class="card"><label>${esc(T("Текст"))}</label><textarea id="sTxt" rows="2">${esc(d.text || "")}</textarea></div>` : ""}
+      ${pts.length && d.type !== "brush" && d.type !== "marker" ? `<div class="card"><label>${esc(T("Координаты"))}</label>${pts.map((q, i) => `<div style="display:flex;gap:8px;align-items:center;margin-top:6px">
+        <span style="color:var(--mu);font-size:13px;min-width:92px">${esc(T("Точка"))} ${i + 1}${q.t ? " · " + esc(dateStr(q.t)) : ""}</span><input type="number" step="any" inputmode="decimal" data-p="${d.pts.indexOf(q)}" value="${(+q.p).toFixed(dg())}"></div>`).join("")}</div>` : ""}
+      <div class="btns" style="padding:0 12px"><button id="sDup">${esc(T("Клонировать"))}</button><button id="sDel" style="color:var(--dn)">${esc(T("Удалить"))}</button></div>`;
+      const st = () => { LS.set("drStyle:" + d.type, {col: d.col, w: d.w, ls: d.ls, fill: d.fill}); save(); };
+      $$("[data-c]", b).forEach(x => x.onclick = () => { d.col = x.dataset.c; st(); draw(); });
+      $("#sCol", b).oninput = e => { d.col = e.target.value; st(); };
+      $$("[data-w]", b).forEach(x => x.onclick = () => { d.w = +x.dataset.w; st(); draw(); });
+      $$("[data-l]", b).forEach(x => x.onclick = () => { d.ls = x.dataset.l; st(); draw(); });
+      $$("[data-t]", b).forEach(x => x.onclick = () => { const k = x.dataset.t; d[k] = !d[k]; if (k === "fill") st(); else save(); draw(); });
+      const tx = $("#sTxt", b); if (tx) tx.oninput = () => { d.text = tx.value; save(); };
+      $$("[data-p]", b).forEach(x => x.onchange = () => { const v = parseFloat(x.value); if (isFinite(v)) { d.pts[+x.dataset.p].p = v; save(); } });
+      $("#sDup", b).onclick = () => { clone(d); closeSheet(); };
+      $("#sDel", b).onclick = () => { list = list.filter(x => x !== d); save(); deselect(); closeSheet(); toast(T("Рисунок удалён")); };
+    };
+    draw();
+  }
+  function clone(d) {
+    const c = JSON.parse(JSON.stringify(d)); c.id = uid(); c.lock = false;
+    c.pts = c.pts.map(q => { const o2 = XY(q); return o2.x == null ? q : q.fx != null ? {fx: q.fx + 0.04, fy: q.fy + 0.04} : toPt(o2.x + 24, o2.y + 24); });
+    list.push(c); sel = c; save(); bar();
+  }
+
+  /* ---------- дерево объектов ---------- */
+  function tree() {
+    const b = sheet(T("Дерево объектов"), "");
+    const draw = () => {
+      if (!list.filter(d => !d.temp).length) { b.innerHTML = `<div class="empty">${esc(T("На этом графике нет рисунков"))}</div>`; return; }
+      b.innerHTML = list.filter(d => !d.temp).slice().reverse().map(d => `<div class="row" data-id="${d.id}" style="height:56px">
+        <span style="width:30px;height:30px;color:${d.col};flex:none" class="tic">${ICN[d.type] || ICN.trend}</span>
+        <div class="nm"><b style="font-size:15px">${esc(T(tdef(d.type)[2]))}</b>${d.text ? `<small>${esc(d.text.slice(0, 40))}</small>` : ""}</div>
+        <button class="x" data-h="${d.id}" style="color:var(--mu)">${d.hid ? "◌" : "👁"}</button><button class="x" data-r="${d.id}">✕</button></div>`).join("") +
+        `<div class="btns" style="padding:0 12px"><button id="tAll" style="color:var(--dn)">${esc(T("Удалить все объекты"))}</button></div>`;
+      $$(".tic svg", b).forEach(s => { s.style.cssText = "width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.4"; });
+      const find = id => list.find(x => x.id === id);
+      $$("[data-h]", b).forEach(x => x.onclick = e => { e.stopPropagation(); const d = find(x.dataset.h); d.hid = !d.hid; save(); draw(); });
+      $$("[data-r]", b).forEach(x => x.onclick = e => { e.stopPropagation(); const d = find(x.dataset.r); list = list.filter(y => y !== d); if (sel === d) deselect(); save(); draw(); });
+      $$(".row", b).forEach(x => x.onclick = () => { const d = find(x.dataset.id); if (!d) return; d.hid = false; closeSheet(); setTool(null); sel = d; cv.style.pointerEvents = "auto"; bar(); dirty = true; });
+      $("#tAll", b).onclick = () => { if (confirm(T("Удалить все рисунки на этом графике?"))) { list = []; save(); deselect(); closeSheet(); } };
+    };
+    draw();
+  }
+
+  /* ---------- отмена / повтор ---------- */
+  let hist = [], fut = [], lastSaved = "[]";
+  function track() {
+    const s = JSON.stringify(list.filter(d => !d.temp));
+    if (s !== lastSaved) { hist.push(lastSaved); if (hist.length > 60) hist.shift(); fut = []; lastSaved = s; }
+    histBtns();
+  }
+  function histBtns() {
+    ["#undoBtn", "#dUndo"].forEach(id => { const e = $(id); if (e) e.classList.toggle("dis", !hist.length); });
+    const r = $("#redoBtn"); if (r) r.classList.toggle("dis", !fut.length);
+  }
+  function restore(s) { list = JSON.parse(s); lastSaved = s; LS.set(key(), list); sel = null; drag = null; cv.style.pointerEvents = tool ? "auto" : "none"; bar(); dirty = true; histBtns(); }
+  function undo() { if (!hist.length) return; fut.push(lastSaved); restore(hist.pop()); }
+  function redo() { if (!fut.length) return; hist.push(lastSaved); restore(fut.pop()); }
+
+  /* ---------- режим рисования: левая панель как в TradingView ---------- */
+  let mode = false;
+  const dtool = $("#dtool");
+  const DEF_LEFT = ["trend", "fib", "h", "ray", "hray", "impulse", "corr", "path", "short", "long", "rect", "prange", "brush", "arrow"];
+  function paintTool() {
+    if (!mode) { dtool.classList.remove("on"); return; }
+    const keys = [...new Set([...LS.get("drFav2", []), ...LS.get("drRecent", []), ...DEF_LEFT])].filter(k => TL[k] && TL[k][1] !== "X").slice(0, 14);
+    dtool.innerHTML = keys.map(k => `<button data-k="${k}" class="${tool === k ? "on" : ""}">${ICN[k]}</button>`).join("") +
+      `<button data-more="1"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/></svg></button>`;
+    dtool.classList.add("on");
+    $$("[data-k]", dtool).forEach(x => x.onclick = () => setTool(tool === x.dataset.k ? null : x.dataset.k));
+    $("[data-more]", dtool).onclick = () => menu();
+    ctbState();
+  }
+  function ctbState() {
+    const m = $("#dMag"); if (m) { m.classList.remove("weak", "strong"); if (opt.mag !== "off") m.classList.add(opt.mag); }
+    const k = $("#dKeep"); if (k) k.classList.toggle("on", !!opt.keep);
+    const h = $("#dHide"); if (h) h.classList.toggle("on", !!opt.hide);
+    const dbtn = $("#drawBtn"); if (dbtn) dbtn.classList.toggle("on", mode);
+  }
+  function setMode(on) {
+    mode = on;
+    $("#ctbN").style.display = on ? "none" : ""; $("#ctbD").style.display = on ? "" : "none";
+    if (!on) { setTool(null); deselect(); }
+    paintTool(); ctbState();
+  }
+
+  const vib = () => { try { if (LS.get("vib", true) && navigator.vibrate) navigator.vibrate(15); } catch (e) {} };
   /* ---------- загрузка по инструменту, перенос старых рисунков ---------- */
   function load() {
     list = LS.get(key(), null);
@@ -1094,9 +1203,15 @@ const DR = (() => {
       if (old.length) LS.set(key(), list);
     }
     sel = null; tmp = null; drag = null; if (!tool) cv.style.pointerEvents = "none"; bar(); dirty = true;
+    hist = []; fut = []; lastSaved = JSON.stringify(list); histBtns();
   }
   G.chart.subscribeClick(onChartClick);
   load();
   requestAnimationFrame(frame);
-  return {menu, load, dirty: () => { dirty = true; }, cancel: () => setTool(null)};
+  $("#dExit").onclick = () => setMode(false);
+  $("#dMag").onclick = () => { opt.mag = opt.mag === "weak" ? "strong" : opt.mag === "strong" ? "off" : "weak"; saveOpt(); ctbState(); toast(T(opt.mag === "strong" ? "Сильный магнит" : opt.mag === "off" ? "Магнит выключен" : "Слабый магнит")); };
+  $("#dKeep").onclick = () => { opt.keep = !opt.keep; saveOpt(); ctbState(); toast(T("Продолжить рисовать") + ": " + T(opt.keep ? "вкл." : "выкл.")); };
+  $("#dHide").onclick = () => { opt.hide = !opt.hide; saveOpt(); ctbState(); dirty = true; };
+  $("#dTree").onclick = tree; $("#dUndo").onclick = undo;
+  return {menu, load, tree, undo, redo, mode: on => setMode(on == null ? !mode : on), dirty: () => { dirty = true; }, cancel: () => setTool(null)};
 })();
