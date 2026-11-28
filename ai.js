@@ -27,7 +27,7 @@ Object.assign(EN, {
   "Каждый запрос оплачивается с баланса вашего ключа у провайдера.": "Each request is billed to your key's balance at the provider.",
   "свой сервер": "custom server", "Модели загружены": "Models loaded", "Не удалось загрузить модели": "Couldn't load models", "ИИ-аналитик": "AI analyst",
   "Вы": "You", "Привет! Я вижу ваш график": "Hi! I can see your chart", "Выберите быстрый вопрос ниже или спросите своё.": "Pick a quick question below or ask your own.",
-  "Сначала откройте график": "Open a chart first", "Модель видит картинки": "Model can see images", "FAZO AI — ИИ-аналитик": "FAZO AI — AI analyst"
+  "Сначала откройте график": "Open a chart first", "Модель видит картинки": "Model can see images", "Своя модель…": "Custom model…", "FAZO AI — ИИ-аналитик": "FAZO AI — AI analyst"
 });
 
 const AI = (() => {
@@ -357,7 +357,8 @@ Use colors: bullish #089981, bearish #f23645, neutral #f5c542, FVG #9c27b0, liqu
       <div class="sec">${esc(T("Провайдер"))}</div>
       <div class="card"><div class="aipv" id="apProv">${Object.keys(PROV).map(tile).join("")}</div>
         <div id="apUrlW" style="margin-top:12px"><label>${esc(T("Адрес сервера (OpenAI-совместимый)"))}</label><input id="apUrl" placeholder="https://…/v1" value="${esc(c.url || "")}" autocomplete="off" spellcheck="false"></div>
-        <label>${esc(T("Модель"))}</label><input id="apModel" list="apList" autocomplete="off" spellcheck="false"><datalist id="apList"></datalist>
+        <label>${esc(T("Модель"))}</label><div class="aimw"><input id="apModel" autocomplete="off" spellcheck="false" readonly><button id="apMBtn" type="button"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button></div>
+        <div id="apList" class="aiml"></div>
         <div class="btns" style="margin-top:8px"><button id="apLoad">${esc(T("Загрузить список моделей"))}</button></div>
         <label>${esc(T("API-ключ"))} <a id="apGet" target="_blank" rel="noopener" style="float:right;color:#5b8cff">${esc(T("Где взять ключ"))}</a></label>
         <input id="apKey" type="password" autocomplete="off" spellcheck="false">
@@ -392,11 +393,24 @@ Use colors: bullish #089981, bearish #f23645, neutral #f5c542, FVG #9c27b0, liqu
       $("#apUrlW", b).style.display = prov === "custom" ? "" : "none";
       $("#apVisW", b).style.display = prov === "custom" ? "" : "none";
       const cc = Object.assign({}, c, {prov}); $("#apModel", b).value = model(cc);
-      $("#apList", b).innerHTML = (models[prov] || PROV[prov].models).map(m => `<option value="${esc(m)}">`).join("");
+      mlist(false);
       const g = $("#apGet", b); g.style.display = PROV[prov].key ? "" : "none"; g.href = PROV[prov].key || "#";
       $("#apKey", b).value = ""; $("#apKey", b).placeholder = ks[prov] ? "••••••••  (" + T("Ключ сохранён") + ")" : prov === "custom" ? "(optional)" : "sk-…";
       $("#apDel", b).style.display = ks[prov] ? "" : "none";
     };
+    /* выбор модели: список под полем (datalist на Android показывает только совпадения) */
+    function mlist(show) {
+      const L = $("#apList", b), cur = $("#apModel", b).value, all = models[prov] || PROV[prov].models;
+      const items = all.slice(); if (cur && !items.includes(cur)) items.unshift(cur);
+      L.innerHTML = items.map(m => `<button type="button" data-m="${esc(m)}" class="${m === cur ? "on" : ""}">${esc(m)}${m === cur ? " ✓" : ""}</button>`).join("") +
+        `<button type="button" data-own="1" class="own">✎ ${esc(T("Своя модель…"))}</button>`;
+      L.classList.toggle("on", !!show);
+      $$("button[data-m]", L).forEach(x => x.onclick = () => { $("#apModel", b).value = x.dataset.m; stash(); mlist(false); });
+      $("button[data-own]", L).onclick = () => { const inp = $("#apModel", b); inp.readOnly = false; inp.value = ""; L.classList.remove("on"); inp.focus(); };
+    }
+    $("#apMBtn", b).onclick = () => mlist(!$("#apList", b).classList.contains("on"));
+    $("#apModel", b).onclick = () => { if ($("#apModel", b).readOnly) mlist(!$("#apList", b).classList.contains("on")); };
+    $("#apModel", b).onblur = () => { const inp = $("#apModel", b); if (!inp.readOnly) { inp.readOnly = true; if (!inp.value.trim()) inp.value = model(Object.assign({}, c, {prov})); stash(); } };
     $$("#apProv button", b).forEach(x => x.onclick = () => { stash(); prov = x.dataset.p; prv(); });
     const stash = () => { const m = $("#apModel", b).value.trim(); c.model = Object.assign({}, c.model); if (m) c.model[prov] = m; };
     prv();
@@ -404,7 +418,7 @@ Use colors: bullish #089981, bearish #f23645, neutral #f5c542, FVG #9c27b0, liqu
       const cc = Object.assign({}, c, {prov, url: $("#apUrl", b).value.trim()});
       try {
         const k = $("#apKey", b).value.trim() || (prov === "openrouter" ? "" : await getKey(cc));
-        models[prov] = await listModels(cc, k); $("#apList", b).innerHTML = models[prov].map(m => `<option value="${esc(m)}">`).join("");
+        models[prov] = await listModels(cc, k); mlist(true);
         toast(T("Модели загружены") + ": " + models[prov].length);
       } catch (e) { if (e.message !== "cancel") toast(T("Не удалось загрузить модели") + " · " + (e.message || e), 4000); }
     };
