@@ -451,11 +451,12 @@ const TR = (() => {
     $("#tSpread").textContent = b && a ? pxs(a - b) : "";
   }
   function placeBtns() {
-    const lg = $("#legend"); $("#tradeBtns").style.top = (lg.offsetTop + lg.offsetHeight + 6) + "px";
+    const lg = $("#legend"); $("#tradeBtns").style.top = (lg.offsetTop + lg.offsetHeight + 4) + "px"; if (typeof placeIl === "function") placeIl();
   }
   function chartBtns() {
     const [e, sym] = chartEx(), on = !!EXS[e];
     $("#tradeBtns").style.display = on && LS.get("tbtn", true) ? "" : "none";
+    if (typeof placeIl === "function") placeIl();
     if (bookKey === S.sym) { placeBtns(); return; }
     if (book) { book.close(); book = null; }
     bookKey = S.sym; paintBook(null, null);

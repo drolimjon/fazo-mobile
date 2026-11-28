@@ -1,7 +1,7 @@
 /* Fazo Mobile — веб-версия терминала для телефона (PWA).
    Работает без ПК: котировки берёт сам браузер у Binance, Binance Futures, Bybit и cTrader (Open API, JSON через WebSocket). */
 "use strict";
-const VER = "1.4.3";
+const VER = "1.4.4";
 const LWC = window.LightweightCharts;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1376,8 +1376,16 @@ function legend(p) {
     const q = Q[S.sym], ref = q && q.chg != null ? q.last / (1 + q.chg / 100) : (G.B[n - 2] || b).close, last = b.close, ch = last - ref, pc = ref ? ch / ref * 100 : 0, s = ch >= 0 ? "+" : "−";
     line2 = `<div class="p ${ch >= 0 ? "up" : "dn"}">${nf(last, d)} ${s}${nf(Math.abs(ch), d)} (${s}${nf(Math.abs(pc), 2)}%)</div>`;
   }
-  L.innerHTML = `<div class="t" id="lgT">${symIcon(S.sym)}<span>${esc(inf.desc || inf.show)}</span><small>· ${tfLabel(S.tf)} · ${esc(SRC_TAG[src] || src)}</small></div>${line2}${il ? `<div class="il">${il}</div>` : ""}`;
+  L.innerHTML = `<div class="t" id="lgT">${symIcon(S.sym)}<span>${esc(inf.desc || inf.show)}</span><small>· ${tfLabel(S.tf)} · ${esc(SRC_TAG[src] || src)}</small></div>${line2}`;
   $("#lgT").onclick = () => searchSheet("open");
+  const ig = $("#ilg"); if (ig.dataset.h !== il) { ig.innerHTML = il; ig.dataset.h = il; }
+  placeIl();
+}
+/* подписи индикаторов — под кнопками «Продать / Купить» (или под заголовком, если кнопок нет) */
+function placeIl() {
+  const L = $("#legend"), tb = $("#tradeBtns"), ig = $("#ilg");
+  const on = tb && tb.style.display !== "none";
+  ig.style.top = (on ? tb.offsetTop + tb.offsetHeight + 6 : L.offsetTop + L.offsetHeight + 2) + "px";
 }
 /* отсчёт до закрытия свечи под меткой цены */
 function cdownTick() {
