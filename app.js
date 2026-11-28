@@ -670,10 +670,13 @@ function initChart() {
 function mkMain() {
   if (G.main) { G.chart.removeSeries(G.main); G.main = null; }
   if (G.vol) { G.chart.removeSeries(G.vol); G.vol = null; }
-  const pf = {type: "price", precision: G.dig, minMove: +(1 / 10 ** G.dig).toFixed(G.dig)};
-  const U = CUP(), D = CDN();
-  const cs = {upColor: U, downColor: D, borderVisible: false, wickUpColor: U, wickDownColor: D, priceFormat: pf};
-  if (S.type === "bars") G.main = G.chart.addBarSeries({upColor: U, downColor: D, thinBars: false, priceFormat: pf});
+  const st = G.cst = CST(), pd = st.prec === "def" ? G.dig : +st.prec;
+  G.cbar = LS.get(cbarKey(), {});
+  const pf = {type: "price", precision: pd, minMove: +(1 / 10 ** pd).toFixed(pd)};
+  const NONE = "rgba(0,0,0,0)";
+  const cs = {upColor: st.body ? st.bu : NONE, downColor: st.body ? st.bd : NONE, borderVisible: st.border, borderUpColor: st.ru, borderDownColor: st.rd,
+    wickVisible: st.wick, wickUpColor: st.wu, wickDownColor: st.wd, priceFormat: pf};
+  if (S.type === "bars") G.main = G.chart.addBarSeries({upColor: st.bu, downColor: st.bd, thinBars: false, priceFormat: pf});
   else if (S.type === "line") G.main = G.chart.addLineSeries({color: "#2962ff", lineWidth: 2, priceFormat: pf});
   else if (S.type === "area") G.main = G.chart.addAreaSeries({lineColor: "#2962ff", topColor: "rgba(41,98,255,.35)", bottomColor: "rgba(41,98,255,0)", lineWidth: 2, priceFormat: pf});
   else G.main = G.chart.addCandlestickSeries(cs);
@@ -691,9 +694,24 @@ const haCalc = (b, p) => {
 const toPt = (b, i) => {
   const t = b.time + TZ;
   if (S.type === "line" || S.type === "area") return {time: t, value: b.close};
-  if (S.type === "ha") { const h = G.HA[i]; return {time: t, open: h.open, high: h.high, low: h.low, close: h.close}; }
-  return {time: t, open: b.open, high: b.high, low: b.low, close: b.close};
+  const h = S.type === "ha" ? G.HA[i] : b, o = {time: t, open: h.open, high: h.high, low: h.low, close: h.close};
+  return barPaint(o, b, i);
 };
+/* цвет отдельной свечи: «по предыдущему закрытию» и ручная окраска свечи (как в TradingView) */
+const cbarKey = () => "cbar:" + S.sym + "|" + S.tf;
+function barPaint(o, b, i) {
+  const st = G.cst || CST(), ov = G.cbar && G.cbar[b.time];
+  if (st.prev && i > 0) {
+    const pv = S.type === "ha" ? G.HA[i - 1] : G.B[i - 1], up = pv ? o.close >= pv.close : o.close >= o.open;
+    if (S.type === "bars") o.color = up ? st.bu : st.bd;
+    else { o.color = st.body ? (up ? st.bu : st.bd) : "rgba(0,0,0,0)"; o.borderColor = up ? st.ru : st.rd; o.wickColor = up ? st.wu : st.wd; }
+  }
+  if (ov) {
+    if (S.type === "bars") { if (ov.c) o.color = ov.c; }
+    else { if (ov.c) o.color = ov.c; if (ov.b) o.borderColor = ov.b; if (ov.w) o.wickColor = ov.w; }
+  }
+  return o;
+}
 const volPt = b => ({time: b.time + TZ, value: b.volume, color: (b.close >= b.open ? CUP() : CDN()) + "73"});
 
 function renderAll(keepRange) {
@@ -1392,6 +1410,8 @@ CT.onStatus = () => { const e = $("#ctSt"); if (e) { e.textContent = CT.status; 
 
 /* ================= график в стиле TradingView ================= */
 const CUP = () => LS.get("cUp", "#089981"), CDN = () => LS.get("cDn", "#f23645");
+/* стиль свечей как в окне «Инструмент» TradingView: тело / границы / фитиль, цвет по предыдущему закрытию, точность */
+const CST = () => { const u = CUP(), d = CDN(); return Object.assign({prev: false, body: true, border: true, wick: true, bu: u, bd: d, ru: u, rd: d, wu: u, wd: d, prec: "def"}, LS.get("cst", {})); };
 function legend(p) {
   const n = G.B.length, L = $("#legend"); if (!n) { L.innerHTML = ""; return; }
   let b = G.B[n - 1], i = n - 1;
@@ -1408,6 +1428,7 @@ function legend(p) {
   }
   L.innerHTML = `<div class="t" id="lgT">${symIcon(S.sym)}<span>${esc(inf.desc || inf.show)}</span><small>· ${tfLabel(S.tf)} · ${esc(SRC_TAG[src] || src)}</small></div>${line2}`;
   $("#lgT").onclick = () => searchSheet("open");
+  if (typeof CS !== "undefined") CS.legend(L);
   const ig = $("#ilg"); if (ig.dataset.h !== il) { ig.innerHTML = il; ig.dataset.h = il; }
   placeIl();
 }
@@ -1496,7 +1517,7 @@ function chartSettings() {
     else LS.set(k, !LS.get(k, ["grid", "cdown", "tbtn", "wm", "vib"].includes(k)));
     $(".sw", e).classList.toggle("on"); applyChartPrefs();
   });
-  const setC = (u, d) => { LS.set("cUp", u); LS.set("cDn", d); if (G.B.length) { mkMain(); renderAll(true && 0); } chartSettings(); };
+  const setC = (u, d) => { LS.set("cUp", u); LS.set("cDn", d); LS.set("cst", Object.assign(LS.get("cst", {}), {bu: u, bd: d, ru: u, rd: d, wu: u, wd: d})); if (G.B.length) { mkMain(); renderAll(true && 0); } chartSettings(); };
   $$("[data-cp]", b).forEach(e => e.onclick = () => { const p = CPRESET[+e.dataset.cp]; setC(p[0], p[1]); });
   $("#cUp", b).onchange = e => setC(e.target.value, CDN());
   $("#cDn", b).onchange = e => setC(CUP(), e.target.value);

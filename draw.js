@@ -45,7 +45,7 @@ Object.assign(EN, {
   "Магнит": "Magnet", "Рисовать подряд": "Stay in drawing mode", "Скрыть рисунки": "Hide drawings", "Удалить все рисунки": "Remove all drawings",
   "Точка": "Point", "из": "of", "Готово": "Done", "Введите текст": "Enter text", "Текст пуст": "Text is empty", "Рисунок удалён": "Drawing removed",
   "Удалить все рисунки на этом графике?": "Remove all drawings on this chart?", "Тяните точку или весь рисунок": "Drag a point or the whole drawing",
-  "Нарисуйте пальцем": "Draw with your finger", "Цель": "Target", "Стоп": "Stop", "свечей": "bars", "Закреплён": "Locked"
+  "Нарисуйте пальцем": "Draw with your finger", "Панель избранного": "Favorites toolbar", "Цель": "Target", "Стоп": "Stop", "свечей": "bars", "Закреплён": "Locked"
 });
 
 const DR = (() => {
@@ -221,6 +221,7 @@ const DR = (() => {
   const TX_ = (x, y, s, fs = 7) => `<text x="${x}" y="${y}" font-size="${fs}" fill="currentColor" stroke="none" font-family="sans-serif" text-anchor="middle">${s}</text>`;
   const CAND = "M8 9v12M6 12h4v6H6zM15 6v14M13 9h4v7h-4zM22 10v13M20 13h4v6h-4z";
   const ICN = {
+    favbar: '<svg viewBox="0 0 30 30"><rect x="3" y="9" width="24" height="12" rx="3"/><path d="M8 13v4M10.5 13v4M15 12.5l1 2 2.2.3-1.6 1.5.4 2.2-2-1-2 1 .4-2.2-1.6-1.5 2.2-.3z"/></svg>',
     trend: IC("M7 23 23 7", "7,23 23,7"), ray: IC("M7 23 27 3", "7,23 15,15"), info: IC("M6 22 17 11", "6,22 17,11", '<rect x="19" y="5" width="8" height="6" rx="2.5"/>'),
     ext: IC("M3 27 27 3", "11,19 19,11"), angle: IC("M6 23 22 8M6 23h18M14 23a8 8 0 0 0-2.4-5.6", "6,23 22,8"), h: IC("M3 15h24", "15,15"), hray: IC("M8 15h19", "8,15"),
     v: IC("M15 3v24", "15,15"), cross: IC("M3 15h24M15 3v24", "15,15"), channel: IC("M5 17 19 6M11 25 25 14", "5,17 19,6 18,20"),
@@ -845,7 +846,7 @@ const DR = (() => {
     if (type && !mode) { mode = true; $("#ctbN").style.display = "none"; $("#ctbD").style.display = ""; }
     tool = type; tmp = null; sel = null; drag = null;
     cv.style.pointerEvents = type ? "auto" : "none";
-    hint(); bar(); paintTool(); dirty = true;
+    hint(); bar(); paintTool(); paintFav(); dirty = true;
   }
   function hint() {
     const h = $("#drawHint");
@@ -1049,7 +1050,8 @@ const DR = (() => {
       ["magnet", magName(), () => { opt.mag = opt.mag === "weak" ? "strong" : opt.mag === "strong" ? "off" : "weak"; saveOpt(); }, opt.mag !== "off", 1],
       ["trash", "Удалить все объекты", () => { if (list.length && confirm(T("Удалить все рисунки на этом графике?"))) { list = []; save(); deselect(); closeSheet(); } }, null, 0, !list.length],
       ["zoomin", "Увеличить масштаб", () => { const t = ts(); t.applyOptions({barSpacing: Math.min(60, (t.options().barSpacing || 7) * 1.4)}); }],
-      ["zoomout", "Уменьшить масштаб", () => { const t = ts(); t.applyOptions({barSpacing: Math.max(1, (t.options().barSpacing || 7) / 1.4)}); }]
+      ["zoomout", "Уменьшить масштаб", () => { const t = ts(); t.applyOptions({barSpacing: Math.max(1, (t.options().barSpacing || 7) / 1.4)}); }],
+      ["favbar", "Панель избранного", () => { LS.set("favBarOff", !LS.get("favBarOff", false)); paintFav(); }, !LS.get("favBarOff", false)]
     ];
   }
   function menu() {
@@ -1065,7 +1067,7 @@ const DR = (() => {
       if (q) { const s = q.toLowerCase(); keys = Object.keys(TL).filter(k => TL[k][1] !== "X" && (T(TL[k][2]).toLowerCase().includes(s) || TL[k][2].toLowerCase().includes(s))); }
       else if (tab === "tools") {
         const tt = toolTiles();
-        sc.innerHTML = `<div class="dgrid">${tt.map(([k, n, , on, , dis], i) => `<button data-i="${i}" class="${i >= 2 && i <= 6 ? "tg" + (on ? " on" : "") : ""}${dis ? " dis" : ""}">${ICN[k]}<span>${esc(T(n))}</span></button>`).join("")}</div>`;
+        sc.innerHTML = `<div class="dgrid">${tt.map(([k, n, , on, , dis], i) => `<button data-i="${i}" class="${(i >= 2 && i <= 6) || k === "favbar" ? "tg" + (on ? " on" : "") : ""}${dis ? " dis" : ""}">${ICN[k]}<span>${esc(T(n))}</span></button>`).join("")}</div>`;
         $$("[data-i]", sc).forEach(x => x.onclick = () => { tt[+x.dataset.i][2](); if ($("#sheet").classList.contains("on")) draw(); });
         return;
       } else if (tab === "fav") keys = fav.filter(k => TL[k]);
@@ -1079,7 +1081,7 @@ const DR = (() => {
       $$("[data-k]", sc).forEach(x => longPress(x, () => {
         const f = LS.get("drFav2", []), k = x.dataset.k, i = f.indexOf(k);
         if (i >= 0) f.splice(i, 1); else f.push(k);
-        LS.set("drFav2", f); toast(i >= 0 ? T("Удалено из избранного") : T("Добавлено в избранное")); draw();
+        LS.set("drFav2", f); toast(i >= 0 ? T("Удалено из избранного") : T("Добавлено в избранное")); draw(); paintFav();
       }, () => { closeSheet(); setTool(x.dataset.k); }));
     };
     $$("[data-tab]", b).forEach(x => x.onclick = () => { tab = x.dataset.tab; LS.set("drTab", tab); $$("[data-tab]", b).forEach(y => y.classList.toggle("on", y === x)); draw(); });
@@ -1176,6 +1178,56 @@ const DR = (() => {
     $("[data-more]", dtool).onclick = () => menu();
     ctbState();
   }
+  /* ---------- плавающая панель избранных инструментов (как в TradingView): тянется за ⋮⋮ куда угодно ---------- */
+  const fbar = document.createElement("div"); fbar.id = "favBar"; wrap.appendChild(fbar);
+  const GRIP = '<svg viewBox="0 0 12 24"><circle cx="3.5" cy="6" r="1.5"/><circle cx="8.5" cy="6" r="1.5"/><circle cx="3.5" cy="12" r="1.5"/><circle cx="8.5" cy="12" r="1.5"/><circle cx="3.5" cy="18" r="1.5"/><circle cx="8.5" cy="18" r="1.5"/></svg>';
+  function paintFav() {
+    const fav = LS.get("drFav2", []).filter(k => TL[k] && TL[k][1] !== "X");
+    if (!fav.length || LS.get("favBarOff", false)) { fbar.classList.remove("on"); return; }
+    fbar.classList.toggle("vert", !!LS.get("favVert", false));
+    fbar.innerHTML = `<span class="grip">${GRIP}</span>` + fav.map(k => `<button data-k="${k}" class="${tool === k ? "on" : ""}">${ICN[k] || ICN.trend}</button>`).join("");
+    fbar.classList.add("on");
+    $$("[data-k]", fbar).forEach(x => x.onclick = e => { e.stopPropagation(); setTool(tool === x.dataset.k ? null : x.dataset.k); });
+    placeFav();
+  }
+  function placeFav() {                                      // позиция хранится долями (0…1), чтобы переживать поворот экрана
+    if (!fbar.classList.contains("on")) return;
+    const pos = LS.get("favPos", {x: 0.03, y: 0.16}), mw = Math.max(0, wrap.clientWidth - fbar.offsetWidth), mh = Math.max(0, wrap.clientHeight - fbar.offsetHeight);
+    fbar.style.left = Math.round(Math.min(1, Math.max(0, pos.x)) * mw) + "px"; fbar.style.top = Math.round(Math.min(1, Math.max(0, pos.y)) * mh) + "px";
+  }
+  {
+    let dg = null, lastTap = 0;
+    fbar.addEventListener("pointerdown", e => {
+      if (!e.target.closest(".grip")) return;
+      e.preventDefault(); e.stopPropagation();
+      dg = {sx: e.clientX, sy: e.clientY, l: fbar.offsetLeft, t: fbar.offsetTop, moved: false};
+      try { fbar.setPointerCapture(e.pointerId); } catch (x) {}
+      fbar.classList.add("drag");
+    });
+    fbar.addEventListener("pointermove", e => {
+      if (!dg) return;
+      const dx = e.clientX - dg.sx, dy = e.clientY - dg.sy;
+      if (!dg.moved && Math.hypot(dx, dy) < 5) return;
+      dg.moved = true;
+      const mw = Math.max(0, wrap.clientWidth - fbar.offsetWidth), mh = Math.max(0, wrap.clientHeight - fbar.offsetHeight);
+      fbar.style.left = Math.min(mw, Math.max(0, dg.l + dx)) + "px"; fbar.style.top = Math.min(mh, Math.max(0, dg.t + dy)) + "px";
+    });
+    const end = () => {
+      if (!dg) return;
+      fbar.classList.remove("drag");
+      if (dg.moved) {
+        const mw = Math.max(1, wrap.clientWidth - fbar.offsetWidth), mh = Math.max(1, wrap.clientHeight - fbar.offsetHeight);
+        LS.set("favPos", {x: fbar.offsetLeft / mw, y: fbar.offsetTop / mh});
+      } else {                                               // двойное касание ⋮⋮ — повернуть панель (горизонтально ↔ вертикально)
+        const now = Date.now();
+        if (now - lastTap < 380) { LS.set("favVert", !LS.get("favVert", false)); lastTap = 0; paintFav(); vib(); }
+        else lastTap = now;
+      }
+      dg = null;
+    };
+    fbar.addEventListener("pointerup", end); fbar.addEventListener("pointercancel", end);
+    window.addEventListener("resize", () => setTimeout(placeFav, 60));
+  }
   function ctbState() {
     const m = $("#dMag"); if (m) { m.classList.remove("weak", "strong"); if (opt.mag !== "off") m.classList.add(opt.mag); }
     const k = $("#dKeep"); if (k) k.classList.toggle("on", !!opt.keep);
@@ -1203,7 +1255,7 @@ const DR = (() => {
       if (old.length) LS.set(key(), list);
     }
     sel = null; tmp = null; drag = null; if (!tool) cv.style.pointerEvents = "none"; bar(); dirty = true;
-    hist = []; fut = []; lastSaved = JSON.stringify(list); histBtns();
+    hist = []; fut = []; lastSaved = JSON.stringify(list); histBtns(); paintFav();
   }
   G.chart.subscribeClick(onChartClick);
   load();
@@ -1247,5 +1299,5 @@ const DR = (() => {
     save(); return k;
   }
   function clearAI() { const n = list.length; list = list.filter(x => !x.ai); if (list.length !== n) save(); return n - list.length; }
-  return {addAI, clearAI, aiCount: () => list.filter(x => x.ai).length, menu, load, tree, undo, redo, mode: on => setMode(on == null ? !mode : on), dirty: () => { dirty = true; }, cancel: () => setTool(null)};
+  return {addAI, clearAI, aiCount: () => list.filter(x => x.ai).length, menu, load, tree, undo, redo, busy: () => !!(tool || sel), mode: on => setMode(on == null ? !mode : on), dirty: () => { dirty = true; }, cancel: () => setTool(null)};
 })();
