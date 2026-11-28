@@ -425,5 +425,32 @@ html.light .promo img{filter:invert(1)}
 <script src="draw.js"></script>
 <script src="ai.js"></script>
 <script>applyLang();</script>
+<script>
+/* анонимная статистика: сколько людей пользуются Fazo Mobile (случайный ID устройства, без личных данных) */
+(function () {
+  function sid() {
+    try {
+      var k = "fazo_sid", v = localStorage.getItem(k);
+      if (!/^[a-f0-9]{32}$/.test(v || "")) {
+        var a = new Uint8Array(16); crypto.getRandomValues(a);
+        v = Array.from(a, function (b) { return ("0" + b.toString(16)).slice(-2); }).join("");
+        localStorage.setItem(k, v);
+      }
+      return v;
+    } catch (e) { return ""; }
+  }
+  function ping(st) {
+    var id = sid(); if (!id) return;
+    try {
+      fetch("https://fazo-stats.salimov1974.workers.dev/ping", {
+        method: "POST", keepalive: true, headers: {"content-type": "text/plain"},
+        body: JSON.stringify({id: id, v: "web", k: "app", p: "mobile", st: st})
+      }).catch(function () {});
+    } catch (e) {}
+  }
+  setTimeout(function () { ping(1); }, 5000);
+  setInterval(function () { ping(0); }, 6 * 3600 * 1000);
+})();
+</script>
 </body>
 </html>
