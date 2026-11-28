@@ -723,7 +723,7 @@ function legend(p) {
   const pb = G.B[i - 1], ch = pb ? (b.close - pb.close) / pb.close * 100 : 0, cls = b.close >= b.open ? "up" : "dn", d = G.dig;
   const [src, sym] = splitKey(S.sym);
   const il = S.inds.filter(x => IND[x.k] && !IND[x.k].pane).map(x => `<span style="color:${x.c || IND[x.k].c}">${IND[x.k].n} ${Object.values(Object.assign({}, IND[x.k].p, x.p)).join(" ")}</span>`).join(" · ");
-  $("#legend").innerHTML = `<div class="t">${esc(sym)} <small>· ${S.tf} · ${SRC_TAG[src] || src}</small></div>
+  $("#legend").innerHTML = `<div class="t">${esc(symInfo(S.sym).show)} <small>· ${S.tf} · ${SRC_TAG[src] || src}</small></div>
     <div class="o">O<b class="${cls}"> ${fmt(b.open, d)}</b> H<b class="${cls}"> ${fmt(b.high, d)}</b> L<b class="${cls}"> ${fmt(b.low, d)}</b> C<b class="${cls}"> ${fmt(b.close, d)}</b>
     <b class="${ch >= 0 ? "up" : "dn"}"> ${ch >= 0 ? "+" : ""}${ch.toFixed(2)}%</b>${S.vol ? ` · V <b>${fmtVol(b.volume)}</b>` : ""}</div>${il ? `<div class="il">${il}</div>` : ""}`;
 }
@@ -741,7 +741,7 @@ async function loadChart() {
   if (G.unK) { G.unK(); G.unK = null; }
   G.more = false; G.noMore = false; G.B = [];
   const [src, sym] = splitKey(S.sym), S0 = SRC[src];
-  $("#symTxt").textContent = sym; $("#srcTxt").textContent = SRC_TAG[src] || src; $("#tfBtn").textContent = S.tf;
+  $("#symTxt").textContent = symInfo(S.sym).show; $("#srcTxt").textContent = SRC_TAG[src] || src; $("#tfBtn").textContent = S.tf;
   if (typeof TR !== "undefined") { TR.chartBtns(); TR.chartLines(); }
   chartMsg(null); $("#loading").classList.add("on");
   if (G.main) G.main.setData([]); if (G.vol) G.vol.setData([]); clearInds(); if (typeof DR !== "undefined") DR.load(); legend(null);
