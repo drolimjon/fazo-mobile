@@ -1,7 +1,7 @@
 /* Fazo Mobile — веб-версия терминала для телефона (PWA).
    Работает без ПК: котировки берёт сам браузер у Binance, Binance Futures, Bybit и cTrader (Open API, JSON через WebSocket). */
 "use strict";
-const VER = "1.4.5";
+const VER = "1.5.0";
 const LWC = window.LightweightCharts;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -1260,6 +1260,7 @@ const MI = {
   cam: '<svg viewBox="0 0 24 24"><path d="M4 8h4l2-3h4l2 3h4v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
   full: '<svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>',
   layers: '<svg viewBox="0 0 24 24"><path d="m12 3 9 5-9 5-9-5z"/><path d="m3 13 9 5 9-5"/></svg>',
+  ai: '<svg viewBox="0 0 24 24"><path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4z"/><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"/></svg>',
   clock: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
 };
 let installEvt = null;
@@ -1287,7 +1288,7 @@ function renderSettings() {
   L.innerHTML = `
   <div class="mgrid c3" style="margin-top:6px">
     <button class="o" data-m="site">${MI.site}${esc(T("Fazo для ПК"))}</button><button class="o" data-m="theme">${MI.theme}${esc(T("Тема"))}</button><button class="o" data-m="lang">${MI.lang}${LANG === "ru" ? "Русский" : "English"}</button></div>
-  <div class="mgrid" style="margin-top:12px"><button data-m="trade" style="grid-column:span 2;border:1px solid transparent;background:linear-gradient(var(--sh),var(--sh)) padding-box,linear-gradient(90deg,#f7525f,#2962ff) border-box">${MI.trade}${esc(T("Торгуйте со своим брокером"))}</button></div>
+  <div class="mgrid" style="margin-top:12px"><button data-m="trade" style="grid-column:span 2;border:1px solid transparent;background:linear-gradient(var(--sh),var(--sh)) padding-box,linear-gradient(90deg,#f7525f,#2962ff) border-box">${MI.trade}${esc(T("Торгуйте со своим брокером"))}</button><button data-m="ai" style="grid-column:span 2;border:1px solid transparent;background:linear-gradient(var(--sh),var(--sh)) padding-box,linear-gradient(90deg,#7c4dff,#2962ff) border-box">${MI.ai}${esc(T("FAZO AI — ИИ-аналитик"))}</button></div>
   <div class="sec">${esc(T("ИНСТРУМЕНТЫ"))}</div>
   <div class="mgrid"><button data-m="ind">${MI.ind}${esc(T("Индикаторы"))}</button><button data-m="draw">${MI.draw}${esc(T("Объекты рисования"))}</button>
     <button data-m="alert">${MI.alert}${esc(T("Оповещения"))}</button><button data-m="type">${MI.type}${esc(T("Тип графика"))}</button>
@@ -1320,6 +1321,7 @@ function renderSettings() {
     if (m === "theme") themeSheet();
     if (m === "lang") { LANG = LANG === "ru" ? "en" : "ru"; LS.set("lang", LANG); applyLang(); renderSettings(); legend(null); }
     if (m === "trade") go("pgTrade");
+    if (m === "ai") AI.open();
     if (m === "ind") { go("pgChart"); indSheet(); }
     if (m === "draw") { go("pgChart"); DR.menu(); }
     if (m === "alert") go("pgAlerts");
@@ -1443,14 +1445,14 @@ async function snapshot() {
 function moreSheet() {
   const b = sheet(T("Всё для теханализа"), `
     <div class="mgrid c3"><button class="o" data-m="cset">${MI.gear}${esc(T("Настройки графика"))}</button><button class="o" data-m="shot">${MI.cam}${esc(T("Снимок графика"))}</button><button class="o" data-m="full">${MI.full}${esc(T("Полный экран"))}</button></div>
-    <div class="mgrid" style="margin-top:12px"><button data-m="trade" style="grid-column:span 2;border:1px solid transparent;background:linear-gradient(var(--sh),var(--sh)) padding-box,linear-gradient(90deg,#f7525f,#2962ff) border-box">${MI.trade}${esc(T("Торгуйте со своим брокером"))}</button></div>
+    <div class="mgrid" style="margin-top:12px"><button data-m="trade" style="grid-column:span 2;border:1px solid transparent;background:linear-gradient(var(--sh),var(--sh)) padding-box,linear-gradient(90deg,#f7525f,#2962ff) border-box">${MI.trade}${esc(T("Торгуйте со своим брокером"))}</button><button data-m="ai" style="grid-column:span 2;border:1px solid transparent;background:linear-gradient(var(--sh),var(--sh)) padding-box,linear-gradient(90deg,#7c4dff,#2962ff) border-box">${MI.ai}${esc(T("FAZO AI — ИИ-аналитик"))}</button></div>
     <div class="sec">${esc(T("ИНСТРУМЕНТЫ"))}</div>
     <div class="mgrid"><button data-m="ind">${MI.ind}${esc(T("Индикаторы"))}</button><button data-m="draw">${MI.draw}${esc(T("Объекты рисования"))}</button>
       <button data-m="alert">${MI.alert}${esc(T("Оповещения"))}</button><button data-m="type">${MI.type}${esc(T("Тип графика"))}</button>
       <button data-m="tree">${MI.layers}${esc(T("Дерево объектов"))}</button><button data-m="tf">${MI.clock}${esc(T("Интервал"))}</button></div><div style="height:12px"></div>`);
   $$("[data-m]", b).forEach(e => e.onclick = () => {
     const m = e.dataset.m; closeSheet();
-    ({cset: chartSettings, shot: snapshot, full: toggleFull, trade: () => go("pgTrade"), ind: indSheet, draw: () => DR.menu(), alert: () => alertSheet(), type: typeSheet, tree: () => DR.tree(), tf: tfSheet})[m]();
+    ({cset: chartSettings, shot: snapshot, full: toggleFull, trade: () => go("pgTrade"), ai: () => AI.open(), ind: indSheet, draw: () => DR.menu(), alert: () => alertSheet(), type: typeSheet, tree: () => DR.tree(), tf: tfSheet})[m]();
   });
 }
 /* настройки графика */

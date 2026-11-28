@@ -1213,5 +1213,39 @@ const DR = (() => {
   $("#dKeep").onclick = () => { opt.keep = !opt.keep; saveOpt(); ctbState(); toast(T("Продолжить рисовать") + ": " + T(opt.keep ? "вкл." : "выкл.")); };
   $("#dHide").onclick = () => { opt.hide = !opt.hide; saveOpt(); ctbState(); dirty = true; };
   $("#dTree").onclick = tree; $("#dUndo").onclick = undo;
-  return {menu, load, tree, undo, redo, mode: on => setMode(on == null ? !mode : on), dirty: () => { dirty = true; }, cancel: () => setTool(null)};
+  /* ---------- рисунки от ИИ-аналитика (помечены ai:true, можно удалить разом) ---------- */
+  function addAI(specs) {
+    if (!G.B.length) return 0;
+    list = list.filter(x => !x.ai);
+    const B = G.B, n = B.length, tf = tfs(), last = B[n - 1].time;
+    const tm = v => { if (v == null || v === "") return null; if (typeof v === "number") return v > 1e11 ? Math.round(v / 1000) : v; v = String(v).trim().replace(" ", "T"); const x = Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(v) ? v : v + "Z"); return isNaN(x) ? null : x / 1000; };
+    const num = v => v == null || v === "" || isNaN(+v) ? null : +v;
+    const mk = (type, o) => { const x = Object.assign(newDraw(type), o, {ai: true}); list.push(x); return x; };
+    let k = 0;
+    for (const s of specs || []) {
+      const ty = String(s.type || "").toLowerCase(), col = /^#[0-9a-f]{3,8}$/i.test(s.color || "") ? s.color : null, lab = s.label ? String(s.label).slice(0, 60) : "";
+      const t1 = tm(s.from_time || s.time) ?? B[Math.max(0, n - 40)].time, t2 = tm(s.to_time) ?? last + 12 * tf;
+      if (ty === "level" || ty === "line" || ty === "hline") {
+        const p = num(s.price); if (p == null) continue;
+        mk("h", {pts: [{t: 0, p}], col: col || "#f5c542", w: 1, ls: "d"});
+        if (lab) mk("text", {pts: [{t: last - 30 * tf, p}], col: col || "#f5c542", w: 1, text: lab});
+      } else if (ty === "zone" || ty === "fvg" || ty === "ob" || ty === "rect") {
+        const a = num(s.from ?? s.top ?? s.p1), b = num(s.to ?? s.bottom ?? s.p2); if (a == null || b == null) continue;
+        mk("rect", {pts: [{t: t1, p: Math.max(a, b)}, {t: t2, p: Math.min(a, b)}], col: col || (ty === "fvg" ? "#9c27b0" : "#2962ff"), w: 1, fill: true, text: lab});
+      } else if (ty === "trend") {
+        const a = num(s.p1), b = num(s.p2), ta = tm(s.t1), tb = tm(s.t2); if (a == null || b == null || ta == null || tb == null) continue;
+        mk("trend", {pts: [{t: ta, p: a}, {t: tb, p: b}], col: col || "#2962ff", w: 2, text: lab});
+      } else if (ty === "long" || ty === "short" || ty === "buy" || ty === "sell") {
+        const e = num(s.entry), tp = num(s.tp), sl = num(s.sl); if (e == null || tp == null || sl == null) continue;
+        mk(ty === "long" || ty === "buy" ? "long" : "short", {pts: [{t: last - 10 * tf, p: e}, {t: last + 15 * tf, p: tp}, {t: last + 15 * tf, p: sl}]});
+      } else if (ty === "label" || ty === "text") {
+        const p = num(s.price); if (p == null) continue;
+        mk("text", {pts: [{t: tm(s.time) ?? last, p}], col: col || "#2962ff", w: 1, text: lab || pf(p)});
+      } else continue;
+      k++;
+    }
+    save(); return k;
+  }
+  function clearAI() { const n = list.length; list = list.filter(x => !x.ai); if (list.length !== n) save(); return n - list.length; }
+  return {addAI, clearAI, aiCount: () => list.filter(x => x.ai).length, menu, load, tree, undo, redo, mode: on => setMode(on == null ? !mode : on), dirty: () => { dirty = true; }, cancel: () => setTool(null)};
 })();

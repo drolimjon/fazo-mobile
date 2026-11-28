@@ -380,7 +380,7 @@ const TR = (() => {
   const decs = st => { const s = String(st); if (/e-/.test(s)) return +s.split("e-")[1]; const i = s.indexOf("."); return i < 0 ? 0 : s.length - i - 1; };
   const roundTo = (v, st) => +(Math.floor(v / st + 1e-9) * st).toFixed(decs(st));
   const roundPx = (v, st) => +(Math.round(v / st) * st).toFixed(decs(st));
-  async function ticket(side) {
+  async function ticket(side, pre) {
     const [e, sym] = chartEx();
     if (!EXS[e]) return toast(T("Торговля доступна для Binance Futures и Bybit. Откройте инструмент с этих бирж."), 4000);
     if (!store()[e]) { toast(T("Сначала подключите API-ключ во вкладке «Торговля»"), 3500); ex = e; LS.set("tex", ex); go("pgTrade"); return; }
@@ -420,6 +420,14 @@ const TR = (() => {
     });
     ["#oQty", "#oLev", "#oPx"].forEach(id => $(id, b).oninput = upd);
     upd();
+    if (pre) {                                                  // предложение ИИ: заполнить тикет
+      if (pre.price) { $$("#oType button", b)[1].click(); $("#oPx", b).value = roundPx(pre.price, f.tick); }
+      if (pre.qty) $("#oQty", b).value = Math.max(f.minQty, roundTo(pre.qty, f.step));
+      if (pre.tp) $("#oTp", b).value = roundPx(pre.tp, f.tick);
+      if (pre.sl) $("#oSl", b).value = roundPx(pre.sl, f.tick);
+      if (pre.lev) $("#oLev", b).value = pre.lev;
+      upd();
+    }
     $("#oGo", b).onclick = () => {
       const qty = roundTo(parseFloat($("#oQty", b).value) || 0, f.step), lev = Math.max(1, Math.round(parseFloat($("#oLev", b).value) || 1));
       const price = type === "limit" ? roundPx(parseFloat($("#oPx", b).value) || 0, f.tick) : null;
@@ -492,5 +500,12 @@ const TR = (() => {
   $("#tBuy").onclick = () => ticket("buy");
   $("#tSell").onclick = () => ticket("sell");
   chartBtns();
-  return {render, chartBtns, chartLines, refresh};
+  /* для ИИ-аналитика: счёт и позиции по бирже текущего графика (только если ключи разблокированы) */
+  function ctx() {
+    const [e, sym] = chartEx(); if (!EXS[e] || !keys[e]) return null;
+    const d = data[e] || {};
+    return {ex: EXS[e].label, demo: keys[e].demo, sym, acc: d.acc || null, pos: d.pos || [], ord: (d.ord || []).filter(o => o.sym === sym)};
+  }
+  const canTrade = () => !!EXS[chartEx()[0]];
+  return {render, chartBtns, chartLines, refresh, ticket, ctx, canTrade};
 })();
