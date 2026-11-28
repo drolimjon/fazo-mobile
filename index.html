@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="theme-color" content="#101010">
+<meta name="theme-color" content="#000000">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
@@ -13,29 +13,35 @@
 <link rel="icon" href="icons/favicon.png">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <style>
-:root{--bg:#101010;--pan:#161616;--pop:#1c1c1c;--bd:#2a2a2e;--hv:#2a2a2e;--tx:#d1d4dc;--mu:#787b86;--up:#089981;--dn:#f23645;--bl:#2962ff;
+/* ===== тема в стиле TradingView (тёмная по умолчанию, светлая — html.light) ===== */
+:root{--bg:#000;--sh:#1f1f1f;--tile:#2e2e2e;--tile2:#3a3a3a;--pop:#2e2e2e;--tx:#fff;--tx2:#dbdbdb;--mu:#8c8c8c;--bd:#2e2e2e;--bd2:#1c1c1c;
+  --up:#22ab94;--dn:#f7525f;--bl:#2962ff;--inp:#141414;--sel:#fff;--selt:#000;--shadow:0 10px 30px rgba(0,0,0,.6);
   --st:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px);--sl:env(safe-area-inset-left,0px);--sr:env(safe-area-inset-right,0px)}
+html.light{--bg:#fff;--sh:#fff;--tile:#f0f3fa;--tile2:#e0e3eb;--pop:#fff;--tx:#131722;--tx2:#2a2e39;--mu:#787b86;--bd:#e0e3eb;--bd2:#f0f3fa;
+  --up:#089981;--dn:#f23645;--inp:#f0f3fa;--sel:#131722;--selt:#fff;--shadow:0 10px 30px rgba(0,0,0,.18)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
-html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:14px -apple-system,BlinkMacSystemFont,"Trebuchet MS",Roboto,Ubuntu,sans-serif;overflow:hidden;overscroll-behavior:none;user-select:none;-webkit-user-select:none}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--tx);font:15px -apple-system,BlinkMacSystemFont,Roboto,"Segoe UI",Ubuntu,sans-serif;overflow:hidden;overscroll-behavior:none;user-select:none;-webkit-user-select:none}
 button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
-input,select{font:inherit;color:var(--tx);background:#0c0c0c;border:1px solid var(--bd);border-radius:8px;padding:10px 12px;width:100%;outline:none;user-select:text;-webkit-user-select:text}
-input:focus,select:focus{border-color:var(--bl)}
-#app{position:fixed;inset:0;display:flex;flex-direction:column;padding:var(--st) var(--sr) 0 var(--sl)}
-/* верхняя панель */
-#top{height:46px;flex:none;display:flex;align-items:center;gap:2px;padding:0 4px;border-bottom:1px solid var(--bd);background:var(--bg)}
-#top .b{height:36px;min-width:36px;padding:0 9px;border-radius:6px;display:flex;align-items:center;justify-content:center;gap:5px;font-weight:600;white-space:nowrap}
-#top .b:active,#top .b.on{background:var(--hv)}
-#top .b svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.6}
-#symBtn{flex:0 1 auto;overflow:hidden;max-width:46%}
+input,select,textarea{font:inherit;color:var(--tx);background:var(--inp);border:1px solid var(--bd);border-radius:10px;padding:11px 12px;width:100%;outline:none;user-select:text;-webkit-user-select:text}
+input:focus,select:focus,textarea:focus{border-color:var(--bl)}
+svg.i{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;flex:none}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;padding:var(--st) var(--sr) 0 var(--sl);background:var(--bg)}
+/* верхняя панель графика */
+#top{height:50px;flex:none;display:flex;align-items:center;gap:2px;padding:0 6px;background:var(--bg)}
+#top .b{height:38px;min-width:38px;padding:0 8px;border-radius:10px;display:flex;align-items:center;justify-content:center;gap:6px;font-weight:600;white-space:nowrap}
+#top .b:active,#top .b.on{background:var(--tile)}
+#top .b svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+#symBtn{flex:0 1 auto;overflow:hidden;max-width:50%;font-size:16px}
 #symBtn span{overflow:hidden;text-overflow:ellipsis}
-#symBtn small{color:var(--mu);font-weight:400;font-size:11px}
+#symBtn small{color:var(--mu);font-weight:400;font-size:12px}
+#symBtn .sic{width:24px;height:24px;font-size:9px}
+#tfBtn{background:var(--tile);font-size:14px}
 #top .sp{flex:1}
-#top .sep{width:1px;height:22px;background:var(--bd);margin:0 2px}
+#top .sep{display:none}
 /* страницы */
 #pages{flex:1;position:relative;min-height:0}
-.page{position:absolute;inset:0;display:none;flex-direction:column}
+.page{position:absolute;inset:0;display:none;flex-direction:column;background:var(--bg)}
 .page.on{display:flex}
-#pgChart{background:var(--bg)}
 #chartWrap{flex:1;position:relative;min-height:120px}
 #chart{position:absolute;inset:0}
 #subs{flex:none;display:flex;flex-direction:column}
@@ -47,92 +53,168 @@ input:focus,select:focus{border-color:var(--bl)}
 #legend .o{color:var(--mu)} #legend .o b{font-weight:400}
 #legend .il{color:var(--mu);font-size:11px}
 #flogo{position:absolute;left:12px;bottom:36px;width:66px;height:26px;z-index:2;pointer-events:none;opacity:.55}
-#flogo path{fill:#fff}
+#flogo path{fill:#fff} html.light #flogo path{fill:#131722} html.light #flogo{opacity:.35}
 #loading{position:absolute;inset:0;display:none;align-items:center;justify-content:center;z-index:4;pointer-events:none}
 #loading.on{display:flex}
-.spin{width:28px;height:28px;border:3px solid #333;border-top-color:var(--bl);border-radius:50%;animation:sp 0.8s linear infinite}
+.spin{width:28px;height:28px;border:3px solid var(--tile2);border-top-color:var(--bl);border-radius:50%;animation:sp 0.8s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
-#chartMsg{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);z-index:4;background:var(--pop);border:1px solid var(--bd);border-radius:10px;padding:14px 16px;max-width:86%;text-align:center;display:none;line-height:1.45}
+#chartMsg{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);z-index:4;background:var(--sh);border:1px solid var(--bd);border-radius:14px;padding:16px;max-width:86%;text-align:center;display:none;line-height:1.45}
 #chartMsg.on{display:block}
-#chartMsg button{margin-top:10px;background:var(--bl);color:#fff;border-radius:8px;padding:8px 14px;font-weight:600}
+#chartMsg button{margin-top:10px;background:var(--bl);color:#fff;border-radius:10px;padding:9px 16px;font-weight:600}
 #drawHint{position:absolute;left:50%;top:6px;transform:translateX(-50%);z-index:6;background:var(--bl);color:#fff;border-radius:18px;padding:5px 6px 5px 14px;font-size:12px;display:none;white-space:nowrap;align-items:center;gap:8px;max-width:96%;overflow:hidden;text-overflow:ellipsis}
 #drawHint.on{display:flex}
 #drawHint button{background:rgba(255,255,255,.2);color:#fff;border-radius:12px;height:26px;min-width:26px;padding:0 9px;font-weight:600}
-#drBar{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);z-index:6;background:#1e222d;border:1px solid var(--bd);border-radius:10px;padding:4px;display:none;flex-wrap:wrap;gap:2px;max-width:96%;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+#drBar{position:absolute;left:50%;bottom:40px;transform:translateX(-50%);z-index:6;background:var(--pop);border:1px solid var(--bd);border-radius:12px;padding:4px;display:none;flex-wrap:wrap;gap:2px;max-width:96%;box-shadow:var(--shadow)}
 #drBar.on{display:flex}
-#drBar button{height:34px;min-width:34px;padding:0 6px;border-radius:6px;font-size:14px;display:flex;align-items:center;justify-content:center}
-#drBar button.on{background:var(--hv)}
-#drBar button i{width:18px;height:18px;border-radius:50%;border:2px solid #fff;display:block}
+#drBar button{height:36px;min-width:36px;padding:0 6px;border-radius:8px;font-size:14px;display:flex;align-items:center;justify-content:center}
+#drBar button.on{background:var(--tile)}
+#drBar button i{width:18px;height:18px;border-radius:50%;border:2px solid var(--tx);display:block}
 #drPal{width:100%;flex-wrap:wrap;gap:6px;padding:6px 4px 2px}
-#drPal b{width:26px;height:26px;border-radius:50%;border:1px solid #555;display:block}
-.tgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px;padding:0 14px}
-.tgrid button{min-height:40px;border-radius:8px;background:#242424;font-size:12.5px;text-align:left;padding:6px 10px;line-height:1.25}
-.tgrid button.fav{background:#1e2a44}
-/* быстрые кнопки покупки/продажи справа внизу — не в этой версии */
+#drPal b{width:26px;height:26px;border-radius:50%;border:1px solid var(--mu);display:block}
+/* меню рисования как в TradingView */
+.dsrch{position:relative;padding:0 16px 12px;flex:none}
+.dsrch input{background:var(--tile);border:0;border-radius:12px;padding:12px 12px 12px 44px;font-size:16px}
+.dsrch svg{position:absolute;left:28px;top:11px;width:22px;height:22px;color:var(--mu)}
+.dtabs{display:flex;gap:4px;padding:0 12px 12px;overflow-x:auto;scrollbar-width:none;flex:none}
+.dtabs::-webkit-scrollbar{display:none}
+.dtabs button{height:38px;padding:0 14px;border-radius:10px;white-space:nowrap;font-size:15px;font-weight:500;color:var(--mu)}
+.dtabs button.on{background:var(--tile);color:var(--tx)}
+.dgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 16px 8px}
+.dgrid button{min-height:88px;border-radius:12px;background:var(--tile);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px 6px;font-size:13px;line-height:1.2;text-align:center;color:var(--tx2);position:relative}
+.dgrid button:active{background:var(--tile2)}
+.dgrid button svg{width:30px;height:30px;fill:none;stroke:currentColor;stroke-width:1.3;stroke-linecap:round;stroke-linejoin:round;color:var(--tx)}
+.dgrid button span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.dgrid button.tg{background:none;border:1px solid var(--bd)}
+.dgrid button.tg.on{background:var(--tile);border-color:var(--tile)}
+.dgrid button.dis{opacity:.4}
+.dgrid button .fv{position:absolute;right:7px;top:5px;font-size:11px;color:#f5c542}
+.ghost{text-align:center;padding:30px 24px;color:var(--mu);line-height:1.5}
+.ghost svg{width:120px;height:120px;stroke:var(--tx2);stroke-width:2.2;fill:none;margin-bottom:12px}
+.ghost b{display:block;color:var(--tx);font-size:17px;margin-bottom:6px}
+.pick{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;padding:0 16px 12px}
+.pick button{height:52px;border-radius:12px;background:var(--tile);font-size:28px}
 /* списки */
 .list{flex:1;overflow:auto;-webkit-overflow-scrolling:touch}
-.hd{display:flex;align-items:center;gap:8px;height:48px;padding:0 14px;border-bottom:1px solid var(--bd);flex:none}
-.hd h2{font-size:17px;margin:0;flex:1}
-.hd .btn{height:34px;padding:0 12px;border-radius:8px;background:var(--hv);font-weight:600;display:flex;align-items:center;gap:6px}
+.hd{display:flex;align-items:center;gap:8px;height:56px;padding:0 14px;flex:none}
+.hd h2{font-size:22px;margin:0;flex:1;font-weight:600}
+.hd .btn{height:40px;padding:0 14px;border-radius:12px;background:var(--tile);font-weight:500;display:flex;align-items:center;gap:6px;font-size:16px}
 .hd .btn.pri{background:var(--bl);color:#fff}
-.row{display:flex;align-items:center;gap:10px;padding:0 14px;height:58px;border-bottom:1px solid #1c1c1c}
-.row:active{background:#151515}
-.row .ic{width:34px;height:34px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff}
+.row{display:flex;align-items:center;gap:12px;padding:0 16px;height:64px;position:relative}
+.row::after{content:"";position:absolute;left:68px;right:0;bottom:0;height:1px;background:var(--bd)}
+.row:active{background:var(--bd2)}
+.row .ic{width:40px;height:40px;border-radius:50%;flex:none;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#fff;overflow:hidden;position:relative}
 .row .nm{flex:1;min-width:0}
-.row .nm b{display:block;font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.row .nm small{color:var(--mu);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
-.row .pr{text-align:right;font-variant-numeric:tabular-nums}
-.row .pr b{display:block;font-size:15px;font-weight:600}
-.row .pr span{display:inline-block;margin-top:2px;font-size:12px;padding:1px 6px;border-radius:4px;color:#fff;min-width:58px;text-align:center}
+.row .nm b{display:block;font-size:17px;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .nm small{color:var(--mu);font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;margin-top:2px}
+.row .pr{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.row .pr b{display:block;font-size:17px;font-weight:500}
+.row .pr span{display:block;margin-top:3px;font-size:14px}
 .row .x{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--dn);font-size:18px}
 .row .dr{width:30px;color:var(--mu);text-align:center;font-size:18px;touch-action:none}
 .up{color:var(--up)} .dn{color:var(--dn)}
-.bgu{background:var(--up)} .bgd{background:var(--dn)} .bgn{background:#363a45}
+.bgu{background:var(--up)} .bgd{background:var(--dn)} .bgn{background:var(--tile2)}
 .empty{color:var(--mu);text-align:center;padding:40px 20px;line-height:1.6}
-.sec{color:var(--mu);font-size:12px;text-transform:uppercase;letter-spacing:.04em;padding:16px 14px 6px}
-.card{margin:0 12px 10px;background:var(--pan);border:1px solid var(--bd);border-radius:12px;padding:12px}
-.card label{display:block;color:var(--mu);font-size:12px;margin:10px 0 4px}
+.sec{color:var(--mu);font-size:13px;text-transform:uppercase;letter-spacing:.04em;padding:18px 16px 8px;font-weight:500}
+.card{margin:0 12px 10px;background:var(--sh);border:1px solid var(--bd);border-radius:14px;padding:14px}
+.card label{display:block;color:var(--mu);font-size:13px;margin:12px 0 5px}
 .card label:first-child{margin-top:0}
-.card .note{color:var(--mu);font-size:12px;line-height:1.5;margin-top:8px}
+.card .note{color:var(--mu);font-size:13px;line-height:1.5;margin-top:8px}
 .card .note a{color:#5b8cff}
 .btns{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
-.btns button{flex:1;height:40px;border-radius:8px;background:var(--hv);font-weight:600;min-width:120px}
+.btns button{flex:1;height:44px;border-radius:12px;background:var(--tile);font-weight:600;min-width:120px}
 .btns button.pri{background:var(--bl);color:#fff}
-.seg{display:flex;background:#0c0c0c;border:1px solid var(--bd);border-radius:8px;padding:2px;gap:2px}
-.seg button{flex:1;height:34px;border-radius:6px;font-weight:600;color:var(--mu)}
-.seg button.on{background:var(--hv);color:var(--tx)}
-.st{font-size:12px;margin-top:10px;padding:8px 10px;border-radius:8px;background:#0c0c0c;line-height:1.5;word-break:break-word}
+.seg{display:flex;background:var(--tile);border-radius:12px;padding:3px;gap:3px}
+.seg button{flex:1;height:36px;border-radius:9px;font-weight:600;color:var(--mu)}
+.seg button.on{background:var(--sel);color:var(--selt)}
+.st{font-size:12px;margin-top:10px;padding:8px 10px;border-radius:10px;background:var(--tile);line-height:1.5;word-break:break-word}
 .st.ok{color:var(--up)} .st.er{color:var(--dn)}
+/* котировки как в TradingView */
+.wtop{display:flex;align-items:center;justify-content:center;height:50px;flex:none;position:relative}
+.wtop img{height:20px} html.light .wtop img{filter:invert(1)}
+.wtop .l,.wtop .r{position:absolute;top:5px;width:40px;height:40px;border-radius:50%;display:flex;align-items:center;justify-content:center}
+.wtop .l{left:10px} .wtop .r{right:10px}
+.wbar{display:flex;align-items:center;gap:8px;padding:4px 12px 12px;flex:none}
+.wbar .ham{width:40px;height:44px;display:flex;align-items:center;justify-content:center;border-right:1px solid var(--bd);padding-right:6px;margin-right:2px}
+.pill{height:44px;padding:0 16px;border-radius:12px;background:var(--tile);font-size:17px;font-weight:500;display:flex;align-items:center;gap:6px;white-space:nowrap}
+.pill:active{background:var(--tile2)}
+.promo{margin:4px 16px 8px;border-radius:16px;padding:18px 18px 18px 20px;position:relative;overflow:hidden;border:1px solid #3a2a22;
+  background:radial-gradient(120% 140% at 85% 110%,#7a2a0c 0%,#3a1508 35%,#140806 75%);min-height:132px;display:flex;flex-direction:column;justify-content:center;gap:6px}
+html.light .promo{border-color:#ffd8c2;background:radial-gradient(120% 140% at 85% 110%,#ffb48a 0%,#ffe1cf 45%,#fff5ef 80%)}
+.promo h4{margin:0;font-size:22px;font-weight:700;background:linear-gradient(90deg,#ff4d4d,#ffb03a);-webkit-background-clip:text;background-clip:text;color:transparent;width:fit-content}
+.promo p{margin:0;font-size:14px;color:#e6e6e6;max-width:62%;line-height:1.35} html.light .promo p{color:#4a3a33}
+.promo a{margin-top:8px;align-self:flex-start;background:linear-gradient(90deg,#ff3d57,#ff9a2e);color:#fff;font-weight:600;font-size:15px;text-decoration:none;padding:11px 18px;border-radius:12px}
+.promo img{position:absolute;right:14px;top:50%;transform:translateY(-50%);width:34%;max-width:150px;opacity:.95}
+html.light .promo img{filter:invert(1)}
+.promo .cl{position:absolute;right:8px;top:8px;width:30px;height:30px;color:#bbb;font-size:20px;display:flex;align-items:center;justify-content:center}
+.promo i.star{position:absolute;color:#fff;font-style:normal;font-size:9px;opacity:.7}
+.grp{display:flex;align-items:center;gap:10px;height:46px;padding:0 16px;font-size:15px;color:var(--tx2);font-weight:500;border-top:1px solid var(--bd);margin-top:6px}
+.grp svg{width:18px;height:18px;transition:transform .15s}
+.grp.cl svg{transform:rotate(-90deg)}
+.fx2{width:40px;height:40px;position:relative;flex:none}
+.fx2 span{position:absolute;width:27px;height:27px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:17px;overflow:hidden;background:var(--tile2);line-height:1}
+.fx2 span:first-child{left:0;top:0;z-index:1;box-shadow:0 0 0 2px var(--bg)}
+.fx2 span:last-child{right:0;bottom:0}
+.menu{position:fixed;z-index:60;background:var(--pop);border-radius:14px;box-shadow:var(--shadow);min-width:260px;padding:6px 0;display:none}
+.menu.on{display:block}
+.menu button{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;padding:14px 20px;font-size:17px;text-align:left}
+.menu button:active{background:var(--tile2)}
+.menu button svg{width:24px;height:24px}
+/* интервалы */
+.tfsec{padding:14px 16px 6px;color:var(--mu);font-size:13px;letter-spacing:.04em;text-transform:uppercase;font-weight:500;border-top:1px solid var(--bd)}
+.tfrow{display:flex;gap:10px;padding:4px 16px 14px;overflow-x:auto;scrollbar-width:none}
+.tfrow button{flex:none;width:64px;height:48px;border-radius:12px;background:var(--tile);font-size:16px;position:relative}
+.tfrow button.on{background:var(--sel);color:var(--selt)}
+.tfrow button .fv{position:absolute;right:5px;top:2px;font-size:10px;color:#f5c542}
+.tip{margin:4px 16px 12px;border:1px solid var(--bd);border-radius:12px;padding:12px 40px 12px 14px;display:flex;gap:12px;align-items:center;font-size:14px;line-height:1.4;position:relative}
+.tip .cl{position:absolute;right:8px;top:8px;color:var(--mu);font-size:16px;width:24px;height:24px}
+/* меню «Всё для теханализа» */
+.mgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;padding:0 16px}
+.mgrid.c3{grid-template-columns:repeat(3,1fr)}
+.mgrid button{min-height:74px;border-radius:14px;background:var(--tile);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;font-size:14px;color:var(--tx2);padding:8px}
+.mgrid button.o{background:none;border:1px solid var(--bd)}
+.mgrid button svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;color:var(--tx)}
+.mlink{display:flex;align-items:center;gap:14px;width:100%;padding:0 16px;height:56px;font-size:16px;text-align:left;position:relative}
+.mlink::after{content:"";position:absolute;left:54px;right:0;bottom:0;height:1px;background:var(--bd)}
+.mlink .r{margin-left:auto;color:var(--mu);font-size:14px}
+.thm{display:flex;justify-content:center;gap:40px;padding:10px 16px 20px}
+.thm button{display:flex;flex-direction:column;align-items:center;gap:12px;font-size:17px}
+.thm .ph{width:110px;height:230px;border-radius:18px;border:2px solid var(--bd);padding:40px 14px;display:flex;flex-direction:column;gap:10px}
+.thm .ph i{display:flex;gap:6px;align-items:center}
+.thm .ph i b{height:8px;border-radius:4px;display:block}
+.thm .rd{width:24px;height:24px;border-radius:50%;border:2px solid var(--mu)}
+.thm .on .rd{border:7px solid var(--bl)}
 /* нижняя навигация */
 #nav{flex:none;display:flex;border-top:1px solid var(--bd);background:var(--bg);padding-bottom:var(--sb)}
-#nav button{flex:1;height:54px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:11px;color:var(--mu)}
-#nav button svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6}
+#nav button{flex:1;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:12px;color:var(--mu);min-width:0}
+#nav button span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+#nav button svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 #nav button.on{color:var(--tx)}
-#nav button.on svg{stroke:var(--bl)}
 /* нижние листы */
-#ov{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:50;display:none}
+#ov{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:none}
 #ov.on{display:block}
-.sheet{position:fixed;left:0;right:0;bottom:0;z-index:51;background:var(--pop);border-radius:16px 16px 0 0;max-height:86vh;display:flex;flex-direction:column;
-  transform:translateY(105%);transition:transform .22s ease;padding-bottom:var(--sb);border-top:1px solid var(--bd)}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:51;background:var(--sh);border-radius:20px 20px 0 0;max-height:88vh;display:flex;flex-direction:column;
+  transform:translateY(105%);transition:transform .22s ease;padding-bottom:var(--sb)}
 .sheet.on{transform:none}
-.sheet .grab{width:38px;height:4px;border-radius:2px;background:#444;margin:8px auto 2px;flex:none}
-.sheet .sh{display:flex;align-items:center;padding:6px 14px 10px;gap:8px;flex:none}
-.sheet .sh h3{margin:0;font-size:16px;flex:1}
-.sheet .sh .cl{width:32px;height:32px;border-radius:50%;background:var(--hv);font-size:15px}
-.sheet .sb{overflow:auto;-webkit-overflow-scrolling:touch;padding:0 0 12px}
-.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 14px}
-.grid button{height:44px;border-radius:8px;background:#242424;font-weight:600}
-.grid button.on{background:var(--bl);color:#fff}
-.opt{display:flex;align-items:center;gap:12px;padding:0 16px;height:50px;width:100%;text-align:left}
-.opt:active{background:var(--hv)}
+.sheet .grab{width:40px;height:5px;border-radius:3px;background:var(--tile2);margin:10px auto 4px;flex:none}
+.sheet .sh{display:flex;align-items:center;padding:8px 16px 14px;gap:8px;flex:none}
+.sheet .sh h3{margin:0;font-size:22px;flex:1;font-weight:600}
+.sheet .sh .cl{width:34px;height:34px;border-radius:50%;background:var(--tile);font-size:15px}
+.sheet .sb{overflow:auto;-webkit-overflow-scrolling:touch;padding:0 0 14px;display:flex;flex-direction:column;min-height:0}
+.sheet .sb.dsb{overflow:hidden}
+.sheet .sb .scr{overflow:auto;flex:1;min-height:0}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 16px}
+.grid button{height:46px;border-radius:12px;background:var(--tile);font-weight:600}
+.grid button.on{background:var(--sel);color:var(--selt)}
+.opt{display:flex;align-items:center;gap:12px;padding:0 18px;height:52px;width:100%;text-align:left;font-size:16px}
+.opt:active{background:var(--tile)}
 .opt.on{color:#5b8cff}
 .opt svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6;flex:none}
-.opt .r{margin-left:auto;color:var(--mu);font-size:12px}
-.tabs{display:flex;gap:6px;padding:0 14px 10px;overflow-x:auto;flex:none}
-.tabs button{height:32px;padding:0 12px;border-radius:16px;background:#242424;white-space:nowrap;font-size:13px;font-weight:600}
-.tabs button.on{background:var(--bl);color:#fff}
-.srch{padding:0 14px 10px;flex:none}
-.ind{border-bottom:1px solid #262626;padding:10px 16px}
+.opt .r{margin-left:auto;color:var(--mu);font-size:13px}
+.tabs{display:flex;gap:6px;padding:0 16px 12px;overflow-x:auto;flex:none;scrollbar-width:none}
+.tabs button{height:36px;padding:0 14px;border-radius:10px;background:var(--tile);white-space:nowrap;font-size:14px;font-weight:600}
+.tabs button.on{background:var(--sel);color:var(--selt)}
+.srch{padding:0 16px 12px;flex:none}
+.ind{border-bottom:1px solid var(--bd);padding:10px 16px}
 .ind .h{display:flex;align-items:center;gap:10px}
 .ind .h b{flex:1}
 .ind .h small{color:var(--mu);font-weight:400}
@@ -141,11 +223,11 @@ input:focus,select:focus{border-color:var(--bl)}
 .ind .ps span{display:block;font-size:11px;color:var(--mu);margin-bottom:3px}
 .ind .ps input{padding:7px 8px}
 .ind .ps input[type=color]{padding:2px;height:34px}
-.sw{width:44px;height:26px;border-radius:13px;background:#3a3a3e;position:relative;flex:none;transition:background .15s}
-.sw::after{content:"";position:absolute;left:3px;top:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s}
-.sw.on{background:var(--bl)} .sw.on::after{left:21px}
-#toast{position:fixed;left:50%;top:calc(var(--st) + 56px);transform:translateX(-50%) translateY(-20px);opacity:0;z-index:80;background:#2a2a2e;color:#fff;border-radius:10px;padding:10px 14px;
-  font-size:13px;transition:all .2s;pointer-events:none;max-width:90vw;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.sw{width:48px;height:28px;border-radius:14px;background:var(--tile2);position:relative;flex:none;transition:background .15s}
+.sw::after{content:"";position:absolute;left:3px;top:3px;width:22px;height:22px;border-radius:50%;background:#fff;transition:left .15s}
+.sw.on{background:var(--tx)} .sw.on::after{left:23px;background:var(--bg)}
+#toast{position:fixed;left:50%;top:calc(var(--st) + 56px);transform:translateX(-50%) translateY(-20px);opacity:0;z-index:80;background:var(--pop);color:var(--tx);border-radius:12px;padding:11px 16px;
+  font-size:14px;transition:all .2s;pointer-events:none;max-width:90vw;text-align:center;box-shadow:var(--shadow)}
 #toast.on{opacity:1;transform:translateX(-50%)}
 #splash{position:fixed;inset:0;z-index:100;background:#000;display:flex;align-items:center;justify-content:center;transition:opacity .4s}
 #splash .spc{display:flex;flex-direction:column;align-items:center;gap:22px;animation:spIn .7s cubic-bezier(.2,.8,.2,1) both}
@@ -154,14 +236,14 @@ input:focus,select:focus{border-color:var(--bl)}
 @keyframes spIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:none}}
 @keyframes spTxt{from{opacity:0;transform:translateY(8px)}to{opacity:.9;transform:none}}
 #splash.off{opacity:0;pointer-events:none}
-#tradeBtns{position:absolute;left:8px;top:64px;z-index:5;display:flex;align-items:center;gap:6px;background:rgba(16,16,16,.85);border-radius:6px;padding:3px}
-#tradeBtns button{min-width:86px;height:40px;padding:2px 8px;border-radius:4px;background:#161616;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15}
+#tradeBtns{position:absolute;left:8px;top:64px;z-index:5;display:flex;align-items:center;gap:6px;background:color-mix(in srgb,var(--bg) 85%,transparent);border-radius:8px;padding:3px}
+#tradeBtns button{min-width:86px;height:40px;padding:2px 8px;border-radius:6px;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1.15}
 #tradeBtns button b{font-size:15px;font-weight:600;font-variant-numeric:tabular-nums}
 #tradeBtns button small{font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
 #tSell{border:1.5px solid var(--dn);color:var(--dn)} #tBuy{border:1.5px solid var(--bl);color:#5b8cff}
 #tSpread{font-size:12px;color:var(--tx);min-width:26px;text-align:center;font-variant-numeric:tabular-nums}
 #tEx{padding-top:10px}
-@media (orientation:landscape) and (max-height:500px){#nav button{height:42px;flex-direction:row;gap:6px}#subs .sub{height:80px}}
+@media (orientation:landscape) and (max-height:500px){#nav button{height:44px;flex-direction:row;gap:6px}#subs .sub{height:80px}.promo{display:none}}
 </style>
 </head>
 <body>
@@ -191,7 +273,10 @@ input:focus,select:focus{border-color:var(--bl)}
       <div id="subs"></div>
     </div>
     <div class="page" id="pgWatch">
-      <div class="hd"><h2 data-t="Котировки"></h2><button class="btn" id="wEdit" data-t="Изменить"></button><button class="btn pri" id="wAdd">＋</button></div>
+      <div class="wtop"><button class="l" id="wDots"><svg class="i" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="19" cy="12" r="1.4" fill="currentColor"/></svg></button>
+        <img src="logo.png" alt="Fazo"><button class="r" id="wSearch"><svg class="i" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg></button></div>
+      <div class="wbar"><button class="ham" id="wHam"><svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button>
+        <button class="pill" id="wListBtn" data-t="Список котировок"></button><button class="pill" id="wAdd"><svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px"><path d="M12 5v14M5 12h14"/></svg><span data-t="Добавить"></span></button></div>
       <div class="list" id="wList"></div>
     </div>
     <div class="page" id="pgAlerts">
@@ -204,21 +289,22 @@ input:focus,select:focus{border-color:var(--bl)}
       <div class="list" id="tList"></div>
     </div>
     <div class="page" id="pgSet">
-      <div class="hd"><h2 data-t="Настройки"></h2></div>
+      <div class="hd"><h2 data-t="Меню"></h2></div>
       <div class="list" id="sList"></div>
     </div>
   </div>
   <div id="nav">
-    <button data-p="pgChart" class="on"><svg viewBox="0 0 24 24"><path d="M3 20h18"/><path d="M5 16l4-5 4 3 6-8"/></svg><span data-t="График"></span></button>
-    <button data-p="pgWatch"><svg viewBox="0 0 24 24"><path d="M5 6h14M5 12h14M5 18h14"/></svg><span data-t="Котировки"></span></button>
-    <button data-p="pgAlerts"><svg viewBox="0 0 24 24"><path d="M6 17V11a6 6 0 0 1 12 0v6l1.5 2h-15z"/><path d="M10 21h4"/></svg><span data-t="Алерты"></span></button>
-    <button data-p="pgTrade"><svg viewBox="0 0 24 24"><path d="M7 4v16M17 4v16"/><path d="M4 9l3-3 3 3M14 15l3 3 3-3"/></svg><span data-t="Торговля"></span></button>
-    <button data-p="pgSet"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M4.9 4.9 7 7M17 17l2.1 2.1M4.9 19.1 7 17M17 7l2.1-2.1"/></svg><span data-t="Настройки"></span></button>
+    <button data-p="pgWatch"><svg viewBox="0 0 24 24"><path d="M6 3h12v18l-6-4-6 4z"/><path d="M9 8h6M9 12h6"/></svg><span data-t="Список котировок"></span></button>
+    <button data-p="pgChart" class="on"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><path d="m7 15 3-4 3 3 4-6"/></svg><span data-t="График"></span></button>
+    <button data-p="pgTrade"><svg viewBox="0 0 24 24"><path d="M8 4v16M16 4v16"/><path d="M5 8l3-4 3 4M13 16l3 4 3-4"/></svg><span data-t="Торговля"></span></button>
+    <button data-p="pgAlerts"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 9v4l2 2M5 4 2 7M19 4l3 3"/></svg><span data-t="Алерты"></span></button>
+    <button data-p="pgSet"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg><span data-t="Меню"></span></button>
   </div>
 </div>
 <div id="ov"></div>
 <div class="sheet" id="sheet"><div class="grab"></div><div class="sh"><h3 id="shT"></h3><button class="cl" id="shX">✕</button></div><div class="sb" id="shB"></div></div>
 <div id="toast"></div>
+<div class="menu" id="popMenu"></div>
 <script src="lightweight-charts.js"></script>
 <script src="app.js"></script>
 <script src="trade.js"></script>

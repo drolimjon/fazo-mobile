@@ -3,6 +3,19 @@
    поэтому рисунки остаются на месте при прокрутке, масштабе и смене таймфрейма. */
 "use strict";
 Object.assign(EN, {
+  "Линия тренда": "Trend line", "Линия данных": "Data line", "Удлинённая линия": "Extended line", "Перекрещенные линии": "Cross lines", "Вилы": "Pitchfork",
+  "Фиксированный Квадрат Ганна": "Gann square fixed", "Импульсная волна Эллиотта": "Elliott impulse wave", "Коррекционная волна Эллиотта": "Elliott correction wave",
+  "Треугольник в волнах Эллиотта": "Elliott triangle wave", "Двойная комбинация Эллиотта": "Elliott double combo wave", "Тройная комбинация Эллиотта": "Elliott triple combo wave",
+  "Разделение циклов": "Cyclic lines", "Прогноз позиции": "Position forecast", "Проекция цены": "Price projection", "Диапазон цены": "Price range", "Диапазон времени": "Date range",
+  "Диапазон цены и времени": "Date and price range", "Anchored VWAP": "Anchored VWAP", "Профиль объёма в заданном диапазоне": "Fixed range volume profile",
+  "Текст на экране": "Anchored text", "Изображение": "Image", "Стикеры": "Stickers", "Иконки": "Icons", "Линейка": "Ruler", "Ластик": "Eraser",
+  "Продолжить рисовать": "Stay in drawing mode", "Скрыть объекты рисования": "Hide drawings", "Зафиксировать все объекты": "Lock all drawings",
+  "Слабый магнит": "Weak magnet", "Сильный магнит": "Strong magnet", "Магнит выключен": "Magnet off", "Удалить все объекты": "Remove drawings",
+  "Увеличить масштаб": "Zoom in", "Уменьшить масштаб": "Zoom out", "Избранное": "Favorites", "Инструменты": "Tools", "Линии тренда": "Trend line tools",
+  "Ганн и Фибоначчи": "Gann and Fibonacci", "Измерение и прогнозирование": "Forecasting and measurement", "Геометрические фигуры": "Geometric shapes",
+  "Комментирование": "Annotation", "Визуальные элементы": "Visuals", "Поиск": "Search", "В избранном ничего нет": "Nothing in favorites yet",
+  "Просмотрите категории выше и добавьте нужное в избранное с помощью долгого нажатия.": "Browse the categories above and add tools to favorites with a long press.",
+  "Коснитесь рисунка, чтобы удалить": "Tap a drawing to remove it",
   "Линии": "Lines", "Вилы": "Pitchforks", "Фибоначчи": "Fibonacci", "Ганн": "Gann", "Паттерны": "Patterns", "Волны Эллиотта": "Elliott waves",
   "Циклы": "Cycles", "Прогнозы и измерения": "Forecasting & measurement", "Объём": "Volume", "Фигуры": "Shapes", "Текст и заметки": "Text & notes",
   "Трендовая линия": "Trend line", "Луч": "Ray", "Расширенная линия": "Extended line", "Информационная линия": "Info line", "Угол тренда": "Trend angle",
@@ -42,10 +55,11 @@ const DR = (() => {
   let W = 0, H = 0, DPR = 1;
   let list = [], sel = null, tool = null, tmp = null, drag = null, dirty = true, sig = "";
   const hits = new Map();
-  const opt = Object.assign({mag: true, keep: false, hide: false}, LS.get("drOpt", {}));
+  const opt = Object.assign({mag: "weak", keep: false, hide: false, lockAll: false}, LS.get("drOpt", {}));
+  if (opt.mag === true) opt.mag = "weak"; if (opt.mag === false) opt.mag = "off";
   const saveOpt = () => LS.set("drOpt", opt);
   const key = () => "dr:" + S.sym;
-  const save = () => { LS.set(key(), list); dirty = true; };
+  const save = () => { LS.set(key(), list.filter(d => !d.temp)); dirty = true; };
   const uid = () => "d" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
 
   /* ---------- координаты: время/цена <-> пиксели ---------- */
@@ -71,7 +85,7 @@ const DR = (() => {
     const l = ts().coordinateToLogical(x);
     return {t: Math.round(lToT(l == null ? G.B.length - 1 : l)), p: G.main.coordinateToPrice(y)};
   };
-  const XY = q => ({x: X(q.t), y: Y(q.p)});
+  const XY = q => q.fx != null ? {x: q.fx * W, y: q.fy * H} : {x: X(q.t), y: Y(q.p)};
   const dg = () => S.dig[S.sym] || G.dig || 2;
   const pf = v => fmt(v, dg());
 
@@ -166,28 +180,28 @@ const DR = (() => {
   /* ---------- описание инструментов: [точек, раздел, название, настройки] ---------- */
   const C = {L: "Линии", P: "Вилы", F: "Фибоначчи", G: "Ганн", PT: "Паттерны", E: "Волны Эллиотта", CY: "Циклы", M: "Прогнозы и измерения", V: "Объём", SH: "Фигуры", TX: "Текст и заметки"};
   const TL = {
-    trend: [2, "L", "Трендовая линия"], ray: [2, "L", "Луч"], ext: [2, "L", "Расширенная линия"], info: [2, "L", "Информационная линия"], angle: [2, "L", "Угол тренда"],
-    h: [1, "L", "Горизонтальная линия"], hray: [1, "L", "Горизонтальный луч"], v: [1, "L", "Вертикальная линия"], cross: [1, "L", "Перекрестие"],
+    trend: [2, "L", "Линия тренда"], ray: [2, "L", "Луч"], ext: [2, "L", "Удлинённая линия"], info: [2, "L", "Линия данных"], angle: [2, "L", "Угол тренда"],
+    h: [1, "L", "Горизонтальная линия"], hray: [1, "L", "Горизонтальный луч"], v: [1, "L", "Вертикальная линия"], cross: [1, "L", "Перекрещенные линии"],
     channel: [3, "L", "Параллельный канал", {fill: true}], regr: [2, "L", "Регрессионный тренд", {fill: true, col: "#f23645"}], flat: [3, "L", "Плоский верх/низ", {fill: true}],
     dchan: [3, "L", "Расходящийся канал", {fill: true}],
-    pitch: [3, "P", "Вилы Эндрюса", {fill: true, col: "#f23645"}], schiff: [3, "P", "Вилы Шифа", {fill: true, col: "#f23645"}], mschiff: [3, "P", "Видоизменённые вилы Шифа", {fill: true, col: "#f23645"}],
+    pitch: [3, "P", "Вилы", {fill: true, col: "#f23645"}], schiff: [3, "P", "Вилы Шифа", {fill: true, col: "#f23645"}], mschiff: [3, "P", "Видоизменённые вилы Шифа", {fill: true, col: "#f23645"}],
     ipitch: [3, "P", "Вилы (внутрь)", {fill: true, col: "#f23645"}], vilka: [3, "P", "Вилка", {fill: true, col: "#2962ff"}],
     fib: [2, "F", "Коррекция Фибоначчи", {fill: true}], fibext: [3, "F", "Расширение Фибоначчи по тренду", {fill: true}], fibch: [3, "F", "Каналы Фибоначчи", {fill: true}],
     fibtime: [2, "F", "Периоды времени Фибоначчи"], fibfan: [2, "F", "Веерные линии сопротивления Фибоначчи", {fill: true}], fibtrtime: [3, "F", "Периоды Фибоначчи по тренду"],
     fibcirc: [2, "F", "Окружности Фибоначчи"], fibspiral: [2, "F", "Спираль Фибоначчи", {col: "#f23645"}], fibarc: [2, "F", "Дуги сопротивления Фибоначчи"],
     fibwedge: [3, "F", "Клин Фибоначчи", {fill: true}], pitchfan: [3, "F", "Наклонный веер", {fill: true}],
-    gannbox: [2, "G", "Коробка Ганна", {fill: true}], gannfix: [2, "G", "Фиксированный квадрат Ганна", {fill: true}], gannsq: [2, "G", "Квадрат Ганна", {fill: true}], gannfan: [2, "G", "Веер Ганна", {fill: true}],
+    gannbox: [2, "G", "Коробка Ганна", {fill: true}], gannfix: [2, "G", "Фиксированный Квадрат Ганна", {fill: true}], gannsq: [2, "G", "Квадрат Ганна", {fill: true}], gannfan: [2, "G", "Веер Ганна", {fill: true}],
     xabcd: [5, "PT", "Паттерн XABCD", {fill: true, col: "#089981", L: ["X", "A", "B", "C", "D"]}], cypher: [5, "PT", "Паттерн Cypher", {fill: true, col: "#089981", L: ["X", "A", "B", "C", "D"]}],
     hs: [7, "PT", "Голова и плечи", {fill: true, col: "#089981", L: ["", "LS", "", "H", "", "RS", ""]}], abcd: [4, "PT", "Паттерн ABCD", {col: "#089981", L: ["A", "B", "C", "D"]}],
     tripat: [4, "PT", "Паттерн треугольник", {fill: true, col: "#089981", L: ["A", "B", "C", "D"]}], threed: [7, "PT", "Паттерн трёх движений", {col: "#089981", L: ["", "1", "A", "2", "B", "3", ""]}],
-    impulse: [6, "E", "Импульс (12345)", {col: "#2962ff", L: ["0", "1", "2", "3", "4", "5"], ew: 1}], corr: [4, "E", "Коррекция (ABC)", {col: "#ff9800", L: ["0", "A", "B", "C"], ew: 1}],
-    etri: [6, "E", "Треугольник (ABCDE)", {col: "#e91e63", L: ["0", "A", "B", "C", "D", "E"], ew: 1}], dbl: [4, "E", "Двойная комбинация (WXY)", {col: "#9c27b0", L: ["0", "W", "X", "Y"], ew: 1}],
-    trip: [6, "E", "Тройная комбинация (WXYXZ)", {col: "#00acc1", L: ["0", "W", "X", "Y", "X", "Z"], ew: 1}],
-    cyclic: [2, "CY", "Циклические линии"], tcycle: [2, "CY", "Циклы времени"], sine: [2, "CY", "Синусоида"],
-    long: [1, "M", "Длинная позиция", {pos: 1}], short: [1, "M", "Короткая позиция", {pos: 1}], forecast: [2, "M", "Прогноз"], projection: [3, "M", "Проекция", {fill: true}],
-    barpat: [3, "M", "Шаблон баров"], prange: [2, "M", "Диапазон цен", {fill: true}], drange: [2, "M", "Диапазон дат", {fill: true}], measure: [2, "M", "Диапазон дат и цен", {fill: true}],
+    impulse: [6, "E", "Импульсная волна Эллиотта", {col: "#2962ff", L: ["0", "1", "2", "3", "4", "5"], ew: 1}], corr: [4, "E", "Коррекционная волна Эллиотта", {col: "#ff9800", L: ["0", "A", "B", "C"], ew: 1}],
+    etri: [6, "E", "Треугольник в волнах Эллиотта", {col: "#e91e63", L: ["0", "A", "B", "C", "D", "E"], ew: 1}], dbl: [4, "E", "Двойная комбинация Эллиотта", {col: "#9c27b0", L: ["0", "W", "X", "Y"], ew: 1}],
+    trip: [6, "E", "Тройная комбинация Эллиотта", {col: "#00acc1", L: ["0", "W", "X", "Y", "X", "Z"], ew: 1}],
+    cyclic: [2, "CY", "Разделение циклов"], tcycle: [2, "CY", "Циклы времени"], sine: [2, "CY", "Синусоида"],
+    long: [1, "M", "Длинная позиция", {pos: 1}], short: [1, "M", "Короткая позиция", {pos: 1}], forecast: [2, "M", "Прогноз позиции"], projection: [3, "M", "Проекция цены", {fill: true}],
+    barpat: [3, "M", "Шаблон баров"], prange: [2, "M", "Диапазон цены", {fill: true}], drange: [2, "M", "Диапазон времени", {fill: true}], measure: [2, "M", "Диапазон цены и времени", {fill: true}],
     sector: [3, "M", "Сектор", {fill: true}],
-    avwap: [1, "V", "VWAP с привязкой", {col: "#e040fb"}], vpfix: [2, "V", "Профиль объёма (диапазон)"], vpanc: [1, "V", "Профиль объёма с привязкой"],
+    avwap: [1, "V", "Anchored VWAP", {col: "#e040fb"}], vpfix: [2, "V", "Профиль объёма в заданном диапазоне"], vpanc: [1, "V", "Профиль объёма с привязкой"],
     brush: [0, "SH", "Кисть"], marker: [0, "SH", "Маркер", {col: "#ffeb3b", w: 12}], arrowmk: [2, "SH", "Стрелка-указатель", {col: "#2962ff"}], arrow: [2, "SH", "Стрелка"],
     arrowup: [1, "SH", "Стрелка вверх", {col: "#089981"}], arrowdn: [1, "SH", "Стрелка вниз", {col: "#f23645"}],
     rect: [2, "SH", "Прямоугольник", {fill: true}], rrect: [3, "SH", "Вращающийся прямоугольник", {fill: true}], path: [-1, "SH", "Траектория"],
@@ -196,8 +210,61 @@ const DR = (() => {
     text: [1, "TX", "Текст", {txt: 1}], note: [1, "TX", "Заметка", {txt: 1, col: "#2962ff"}], pnote: [2, "TX", "Заметка цены", {col: "#2962ff"}], pin: [1, "TX", "Метка", {txt: 1, col: "#f23645"}],
     table: [1, "TX", "Таблица", {txt: 1}], callout: [2, "TX", "Сноска", {txt: 1, col: "#2962ff"}], comment: [1, "TX", "Комментарий", {txt: 1, col: "#2962ff"}],
     plabel: [1, "TX", "Метка цены", {col: "#2962ff"}], signpost: [1, "TX", "Знак", {txt: 1, col: "#2962ff"}], flag: [1, "TX", "Флаг", {col: "#f23645"}],
-    emoji: [1, "TX", "Эмодзи", {txt: 1}], alert: [1, "TX", "Алерт на цене"]
+    emoji: [1, "VI", "Эмодзи", {pick: "emoji"}], sticker: [1, "VI", "Стикеры", {pick: "sticker", w: 4}], iconset: [1, "VI", "Иконки", {pick: "icon", col: "#f23645"}],
+    atext: [1, "TX", "Текст на экране", {txt: 1}], image: [2, "TX", "Изображение"], ruler: [2, "X", "Линейка", {fill: true}], alert: [1, "TX", "Алерт на цене"]
   };
+  /* ---------- иконки инструментов (в стиле TradingView) ---------- */
+  const IC = (d, nodes = "", extra = "") => `<svg viewBox="0 0 30 30"><path d="${d}"/>${extra}${nodes.split(" ").filter(Boolean).map(p => { const [x, y] = p.split(","); return `<circle cx="${x}" cy="${y}" r="2.1" style="fill:var(--tile)"/>`; }).join("")}</svg>`;
+  const TX_ = (x, y, s, fs = 7) => `<text x="${x}" y="${y}" font-size="${fs}" fill="currentColor" stroke="none" font-family="sans-serif" text-anchor="middle">${s}</text>`;
+  const CAND = "M8 9v12M6 12h4v6H6zM15 6v14M13 9h4v7h-4zM22 10v13M20 13h4v6h-4z";
+  const ICN = {
+    trend: IC("M7 23 23 7", "7,23 23,7"), ray: IC("M7 23 27 3", "7,23 15,15"), info: IC("M6 22 17 11", "6,22 17,11", '<rect x="19" y="5" width="8" height="6" rx="2.5"/>'),
+    ext: IC("M3 27 27 3", "11,19 19,11"), angle: IC("M6 23 22 8M6 23h18M14 23a8 8 0 0 0-2.4-5.6", "6,23 22,8"), h: IC("M3 15h24", "15,15"), hray: IC("M8 15h19", "8,15"),
+    v: IC("M15 3v24", "15,15"), cross: IC("M3 15h24M15 3v24", "15,15"), channel: IC("M5 17 19 6M11 25 25 14", "5,17 19,6 18,20"),
+    regr: IC("M5 12 25 4v13L5 25zM5 18.5l20-8"), flat: IC("M5 14 25 7M5 22h20", "5,14 25,7 25,22"), dchan: IC("M5 16 25 7M5 19l20 7", "5,16 25,7 25,26"),
+    pitch: IC("M6 25 13 18M9 11l8 12M9 11l9-8M13 17l9-8M17 23l9-8", "6,25 9,11 17,23"), schiff: IC("M5 25h9M9 25 13 18M9 11l8 12M9 11l9-8M13 17l9-8M17 23l9-8", "5,25 9,11 17,23"),
+    mschiff: IC("M5 22l8 -4M9 11l8 12M9 11l9-8M13 17l9-8M17 23l9-8", "5,22 9,11 17,23"), ipitch: IC("M8 26l5-8M8 26l8-4M13 18l4-14M16 22l10-12M13 18l3 4", "8,26 13,18 16,22"),
+    vilka: IC("M5 25 14 6l4 8M5 25 27 12M18 14l9-5", "5,25 14,6 18,14"),
+    fib: IC("M5 6h20M5 11h20M5 16h20M5 21h20M5 26h20", "25,6 5,26"), fibext: IC("M5 15 10 6l5 5M5 18h20M5 22h20M5 26h20", "5,15 10,6 15,11"),
+    fibch: IC("M4 20 22 6M6 26 26 10M5 23l19-15", "4,20 22,6 6,26"), fibtime: IC("M7 5v20M12 5v20M17 5v20M25 5v20", "7,25 12,13"),
+    fibfan: IC("M5 25 25 5M5 25l20-8M5 25l20-14M5 25 17 5M5 25 11 5M25 5v20H5", "5,25 25,5"), fibtrtime: IC("M4 22 8 10l5 7M15 5v20M20 5v20M26 5v20", "4,22 8,10 13,17"),
+    fibcirc: IC("M15 15m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0M15 15m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0M15 15m-11 0a11 11 0 1 0 22 0a11 11 0 1 0-22 0", "15,15 26,15"),
+    fibspiral: IC("M15 15a2 2 0 0 1 2 2 4 4 0 0 1-4 4 6 6 0 0 1-6-6 9 9 0 0 1 9-9 11 11 0 0 1 11 11", "15,15 26,17"),
+    fibarc: IC("M4 23a11 11 0 0 1 22 0M8 23a7 7 0 0 1 14 0M11.5 23a3.5 3.5 0 0 1 7 0", "15,23 15,8"), fibwedge: IC("M6 24h20M6 24 18 6M17 24a11 11 0 0 0-5-9M23 24a17 17 0 0 0-6-13", "6,24 26,24 18,6"),
+    pitchfan: IC("M5 25 25 5M5 25l20-6M5 25l20-13M5 25 17 5M25 5v14", "5,25 25,5 25,19"),
+    gannbox: IC("M5 5h20v20H5zM5 12h20M5 18h20M12 5v20M18 5v20", "5,25 25,5"), gannfix: IC("M5 5h20v20H5zM5 15h20M15 5v20M5 25 25 5M5 25 25 15M5 25 15 5", "5,25 25,5"),
+    gannsq: IC("M5 5h20v20H5zM5 12h20M5 18h20M12 5v20M18 5v20M5 25 25 5M5 5l20 20", "5,25 25,5"), gannfan: IC("M5 25 25 5M5 25l20-8M5 25l20-14M5 25 17 5M5 25 11 5M5 25l20-3", "5,25"),
+    xabcd: IC("M4 24 9 6l5 12 6-10 6 14M4 24l10-6", "4,24 9,6 14,18 20,8 26,22"), cypher: IC("M4 24 9 6l5 12 6-10 6 14M4 24l10-6", "4,24 9,6 14,18 20,8 26,22", TX_(20, 27, "C")),
+    hs: IC("M3 22 7 14l3 4 5-12 5 12 3-4 4 8M5 18h20", "7,14 15,6 23,14"), abcd: IC("M5 23 9 7l11 15 5-14M5 23 25 8", "5,23 9,7 20,22 25,8"),
+    tripat: IC("M4 22 10 8l6 11 6-7 4 5M10 8l16 9M4 22l18-10", "4,22 10,8 16,19 22,12"), threed: IC("M3 24 7 14l3 5 4-10 3 5 4-10 3 5 3-8", "7,14 14,9 21,4"),
+    impulse: IC("M3 22 8 14l3 4 5-9 3 4 5-8", "8,14 11,18 16,9 19,13 24,5", TX_(8, 9, "1") + TX_(24, 27, "5")),
+    corr: IC("M4 10l7 10 6-7 8 11", "11,20 17,13 25,24", TX_(11, 27, "A") + TX_(25, 9, "C")), etri: IC("M3 8l5 12 4-9 4 7 4-5 4 4", "8,20 12,11 16,18 20,13 24,17", TX_(8, 27, "A") + TX_(24, 9, "E")),
+    dbl: IC("M4 22l7-12 6 7 8-12", "11,10 17,17 25,5", TX_(11, 7, "W") + TX_(25, 27, "Y")), trip: IC("M3 22l5-10 4 5 4-9 4 6 5-9", "8,12 12,17 16,8 20,14 25,5", TX_(8, 7, "W") + TX_(25, 27, "Z")),
+    cyclic: IC("M7 4v22M12 4v22M17 4v22M22 4v22", "7,15 12,15"), tcycle: IC("M4 20a5 5 0 0 1 10 0M16 20a5 5 0 0 1 10 0", "4,20 14,20"), sine: IC("M3 15c3-12 7-12 9 0s6 12 9 0 4-6 6-4", "3,15 12,15"),
+    long: IC("M4 8h22M4 15h22M4 22h22", "4,8 4,22", TX_(15, 12, "L", 7)), short: IC("M4 8h22M4 15h22M4 22h22", "4,8 4,22", TX_(15, 19, "S", 7)),
+    forecast: IC(CAND + "M24 5v6M22 9l2 2 2-2"), barpat: IC(CAND), projection: IC(CAND + "M4 26l22-20", "4,26"), sector: IC("M6 24V6a18 18 0 0 1 18 18z", "6,24 6,6 24,24"),
+    avwap: IC(CAND + "M3 24c6-6 12-12 24-14", "3,24"), vpfix: IC("M6 4v22M24 4v22M6 8h9M6 12h13M6 16h7M6 20h11", "6,4 24,26"), vpanc: IC("M6 15h4M25 6v20M25 9h-6M25 13h-10M25 17h-8M25 21h-11", "6,15"),
+    prange: IC("M5 6h20M5 24h20M15 9v13M12 11l3-3 3 3", "5,6 5,24"), drange: IC("M6 5v20M24 5v20M9 15h13M20 12l3 3-3 3", "6,5 24,25"),
+    measure: IC("M5 5h20v20H5zM15 22V8M12 11l3-3 3 3M8 15h14M19 12l3 3-3 3", "5,25 25,5"), ruler: IC("M3 20 20 3l7 7-17 17zM8 16l2 2M11 13l3 3M14 10l2 2M17 7l3 3"),
+    brush: IC("M18 5l7 7-11 11H7v-7zM4 27c3-2 5 0 8-2"), marker: IC("M17 4l9 9-9 9-6-2-3-3-2-6zM8 17l-4 6h7"), arrowmk: IC("M5 25 20 10M14 8l9-1-1 9z"),
+    arrow: IC("M6 24 23 7M15 7h8v8", "6,24"), arrowup: IC("M15 4 6 14h5v12h8V14h5z"), arrowdn: IC("M15 26 6 16h5V4h8v12h5z"),
+    rect: IC("M6 6h18v18H6z", "6,6 24,24"), rrect: IC("M15 3l12 12-12 12L3 15z", "15,3 27,15"), path: IC("M4 22l7-8 6 5 7-10M19 8h5v5", "4,22 11,14 17,19"),
+    circle: IC("M15 15m-10 0a10 10 0 1 0 20 0a10 10 0 1 0-20 0", "15,15 25,15"), ellipse: IC("M15 15m-12 0a12 7 0 1 0 24 0a12 7 0 1 0-24 0", "3,15 27,15 15,8"),
+    poly: IC("M5 20l4-10 8-3 7 8-6 9z", "5,20 9,10 17,7 24,15 18,24"), triangle: IC("M6 25 9 6l16 19z", "6,25 9,6 25,25"), arc: IC("M5 22a11 11 0 0 1 20-8", "5,22 25,14 13,9"),
+    curve: IC("M5 24c2-12 8-16 20-17", "5,24 25,7"), dcurve: IC("M5 25c0-9 10-6 10-11S25 6 25 5", "5,25 15,14 25,5"),
+    text: IC("M7 6h16M15 6v19M11 25h8"), atext: IC("M5 5h14M12 5v14M9 19h6M22 16v10M19 22c0 3 6 3 6 0M20 17h4"), note: IC("M6 4h18v12H6zM15 16v10M11 7h8M15 7v6", "15,26"),
+    pnote: IC("M6 4h18v12H6zM15 16v10M17 7h-3a1.5 1.5 0 0 0 0 3h2a1.5 1.5 0 0 1 0 3h-3M15 6v9", "15,26"), pin: IC("M15 27s8-8 8-14a8 8 0 0 0-16 0c0 6 8 14 8 14zM15 13m-3 0a3 3 0 1 0 6 0a3 3 0 1 0-6 0"),
+    table: IC("M4 6h22v18H4zM4 12h22M4 18h22M11 6v18M19 6v18"), callout: IC("M5 5h20v14H13l-5 6v-6H5z"), comment: IC("M9 8h12a6 6 0 0 1 0 12H9a6 6 0 0 1 0-12z"),
+    plabel: IC("M5 5h20v15H11l-6 6z"), signpost: IC("M15 11m-7 0a7 7 0 1 0 14 0a7 7 0 1 0-14 0M15 18v9M15 8l1 2h2l-1.5 1.5.5 2-2-1-2 1 .5-2L12 10h2z"), flag: IC("M8 27V4M8 5h16l-4 5 4 5H8"),
+    image: IC("M4 6h22v18H4zM4 20l6-6 5 5 4-3 7 6M20 11m-2 0a2 2 0 1 0 4 0a2 2 0 1 0-4 0"), alert: IC("M15 16m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0M15 12v4l3 2M7 5 4 8M23 5l3 3"),
+    emoji: IC("M15 15m-11 0a11 11 0 1 0 22 0a11 11 0 1 0-22 0M10 18c2 3 8 3 10 0M11 12v1M19 12v1"), sticker: IC("M5 5h20v12l-8 8H5zM17 25v-8h8M10 13v1M18 13v1M10 18c2 2 5 2 6 1"),
+    iconset: IC("M15 25S4 18 4 11a5.5 5.5 0 0 1 11-2 5.5 5.5 0 0 1 11 2c0 7-11 14-11 14z"),
+    eraser: IC("M12 25 4 17 17 4l9 9-12 12zM9 12l9 9M12 25h14"), keep: IC("M5 21 18 8l4 4L9 25H5zM16 10l4 4M21 18h6v7h-6zM22 18v-2a2 2 0 0 1 4 0v2"),
+    hide: IC("M3 15s4-8 12-8 12 8 12 8-4 8-12 8-12-8-12-8zM15 15m-4 0a4 4 0 1 0 8 0a4 4 0 1 0-8 0M20 22l6 5"), lockall: IC("M8 13h14v13H8zM11 13V9a4 4 0 0 1 8 0v4"),
+    magnet: IC("M8 5v10a7 7 0 0 0 14 0V5h-5v10a2 2 0 0 1-4 0V5zM8 9h5M17 9h5"), trash: IC("M5 8h20M12 8V5h6v3M8 8l1 18h12l1-18M13 12v10M17 12v10"),
+    zoomin: IC("M13 13m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0M19 19l7 7M13 9v8M9 13h8"), zoomout: IC("M13 13m-8 0a8 8 0 1 0 16 0a8 8 0 1 0-16 0M19 19l7 7M9 13h8")
+  };
+
   const tdef = t => TL[t] || [2, "L", t];
   const topt = t => tdef(t)[3] || {};
 
@@ -625,9 +692,20 @@ const DR = (() => {
       ctx.beginPath(); ctx.moveTo(a.x, a.y - 28); ctx.lineTo(a.x + 18, a.y - 24); ctx.lineTo(a.x, a.y - 18); ctx.closePath(); ctx.fill(); if (HT) HT.push({k: "r", x: a.x - 4, y: a.y - 30, w: 24, h: 32});
     },
     emoji(d, P) { text(d.text || "🚀", P[0].x, P[0].y, {size: 14 + d.w * 6, align: "center", base: "middle"}); },
+    sticker(d, P) { text(d.text || "🔥", P[0].x, P[0].y, {size: 20 + d.w * 8, align: "center", base: "middle"}); },
+    iconset(d, P) { text(d.text || "★", P[0].x, P[0].y, {size: 14 + d.w * 6, align: "center", base: "middle", col: d.col}); },
+    atext(d, P) { text(d.text || T("Текст"), P[0].x, P[0].y, {col: d.col, size: 10 + d.w * 2, base: "middle", bg: "rgba(30,34,45,.55)"}); },
+    image(d, P) {
+      const [a, b] = P; if (!b) return; const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y), w = Math.abs(b.x - a.x), h = Math.abs(b.y - a.y);
+      const im = d.img && (IMG[d.id] = IMG[d.id] || Object.assign(new Image(), {src: d.img, onload: () => { dirty = true; }}));
+      if (im && im.complete && im.naturalWidth) ctx.drawImage(im, x, y, w, h); else { stroke(d.col, 1, "d"); ctx.strokeRect(x, y, w, h); }
+      if (HT) HT.push({k: "r", x, y, w, h});
+    },
     alert(d, P) { R.h(Object.assign({}, d, {col: "#ff9800", ls: "d"}), P); }
   };
   ["impulse", "corr", "etri", "dbl", "trip"].forEach(k => R[k] = R.wave);
+  R.ruler = R.measure;
+  const IMG = {};
   function smooth(P) {
     const pp = P.filter(Boolean); if (pp.length < 2) return;
     ctx.beginPath(); ctx.moveTo(pp[0].x, pp[0].y);
@@ -694,7 +772,7 @@ const DR = (() => {
     if ((sel === d || ghost) && !isFree(d.type)) {
       const hp = handles(d);
       ctx.setLineDash([]); ctx.lineWidth = 2;
-      for (const q of hp) { if (q.x == null) continue; ctx.fillStyle = "#101010"; ctx.strokeStyle = "#2962ff"; ctx.beginPath(); ctx.arc(q.x, q.y, 7, 0, 7); ctx.fill(); ctx.stroke(); }
+      for (const q of hp) { if (q.x == null) continue; ctx.fillStyle = THEMES[isLight() ? "light" : "dark"].bg; ctx.strokeStyle = "#2962ff"; ctx.beginPath(); ctx.arc(q.x, q.y, 7, 0, 7); ctx.fill(); ctx.stroke(); }
     }
   }
   const isFree = t => t === "brush" || t === "marker";
@@ -742,13 +820,14 @@ const DR = (() => {
   }
 
   /* ---------- создание рисунка ---------- */
-  function snap(x, y) {
+  function snap(x, y, type) {
+    if ((type || tool) === "atext") return {fx: x / W, fy: y / H};
     let pt = toPt(x, y);
-    if (opt.mag && G.B.length) {
+    if (opt.mag && opt.mag !== "off" && G.B.length) {
       const l = Math.round(ts().coordinateToLogical(x)); const q = G.B[Math.max(0, Math.min(G.B.length - 1, l))];
       if (l >= 0 && l < G.B.length) {
         const c = [q.open, q.high, q.low, q.close].map(p => ({p, dy: Math.abs(Y(p) - y)})).sort((a, b) => a.dy - b.dy)[0];
-        if (c.dy < 28) pt = {t: q.time, p: c.p};
+        if (opt.mag === "strong" || c.dy < 28) pt = {t: q.time, p: c.p};
       }
     }
     return pt;
@@ -767,6 +846,7 @@ const DR = (() => {
   function hint() {
     const h = $("#drawHint");
     if (!tool) { h.classList.remove("on"); return; }
+    if (tool === "eraser") { h.innerHTML = `${esc(T("Ластик"))} · ${esc(T("Коснитесь рисунка, чтобы удалить"))} <button id="drCancel">✕</button>`; h.classList.add("on"); $("#drCancel").onclick = e => { e.stopPropagation(); setTool(null); }; return; }
     const [n, , name] = tdef(tool), got = tmp && tmp._n ? tmp._n : 0;
     const step = n > 1 ? ` · ${T("Точка")} ${Math.min(got + 1, n)} ${T("из")} ${n}` : n === 0 ? ` · ${T("Нарисуйте пальцем")}` : "";
     h.innerHTML = `${esc(T(name))}${step} ${n < 0 && got > 1 ? `<button id="drDone">${esc(T("Готово"))}</button>` : ""}<button id="drCancel">✕</button>`;
@@ -781,9 +861,13 @@ const DR = (() => {
     const d = tmp; tmp = null; delete d._n;
     if (d.type === "alert") { createAlert(d.pts[0].p); if (!opt.keep) setTool(null); else hint(); return; }
     if (d.type === "long" || d.type === "short") posDefaults(d);
+    if (d.type === "ruler") { d.temp = true; list.push(d); setTool(null); dirty = true; setTimeout(() => { list = list.filter(x => x !== d); dirty = true; }, 9000); return; }
     list.push(d); save();
     const after = () => { if (opt.keep) { hint(); } else { setTool(null); sel = d; cv.style.pointerEvents = "auto"; bar(); dirty = true; } };
-    if (topt(d.type).txt && !d.text) askText(d.type === "emoji" ? "🚀" : "", s => { d.text = s || (d.type === "emoji" ? "🚀" : ""); save(); after(); }); else after();
+    const drop = () => { list = list.filter(x => x !== d); save(); setTool(null); };
+    if (topt(d.type).pick) pickGlyph(topt(d.type).pick, g => { if (!g) return drop(); d.text = g; save(); after(); });
+    else if (d.type === "image") pickImage(url => { if (!url) return drop(); d.img = url; save(); after(); });
+    else if (topt(d.type).txt && !d.text) askText("", s => { d.text = s; save(); after(); }); else after();
   }
   function posDefaults(d) {
     const e = d.pts[0], dir = d.type === "long" ? 1 : -1, n = G.B.length;
@@ -805,6 +889,7 @@ const DR = (() => {
   cv.addEventListener("pointerdown", e => {
     e.preventDefault(); cv.setPointerCapture(e.pointerId);
     const p = pos(e); down = {p, moved: false};
+    if (tool === "eraser") { const d = hitTest(p); if (d) { list = list.filter(x => x !== d); save(); toast(T("Рисунок удалён")); } down = null; return; }
     if (tool) {
       const n = tdef(tool)[0];
       if (!tmp) tmp = newDraw(tool);
@@ -815,7 +900,7 @@ const DR = (() => {
     }
     if (sel) {
       const hp = handles(sel).find(q => q.x != null && Math.hypot(q.x - p.x, q.y - p.y) < 22);
-      if (sel.lock) { if (!hitTest(p)) deselect(); return; }
+      if (sel.lock || opt.lockAll) { const o = hitTest(p); if (!o) deselect(); else if (o !== sel) { sel = o; bar(); dirty = true; } return; }
       if (hp) { drag = {h: hp.i, p0: p, orig: JSON.parse(JSON.stringify(sel.pts))}; return; }
       if (hitTest(p) === sel) { drag = {all: true, p0: p, orig: JSON.parse(JSON.stringify(sel.pts))}; return; }
       const other = hitTest(p); if (other) { sel = other; bar(); dirty = true; return; }
@@ -834,9 +919,9 @@ const DR = (() => {
     if (drag && sel) {
       if (drag.all) {
         const dx = p.x - drag.p0.x, dy = p.y - drag.p0.y;
-        sel.pts = drag.orig.map(q => { const o = XY(q); return o.x == null ? q : toPt(o.x + dx, o.y + dy); });
+        sel.pts = drag.orig.map(q => { const o = XY(q); return o.x == null ? q : q.fx != null ? {fx: (o.x + dx) / W, fy: (o.y + dy) / H} : toPt(o.x + dx, o.y + dy); });
       } else {
-        const pt = snap(p.x, p.y);
+        const pt = snap(p.x, p.y, sel.type);
         if (sel.type === "h" || sel.type === "alert") sel.pts[0] = {t: sel.pts[0].t, p: pt.p};
         else { sel.pts[drag.h] = pt; if ((sel.type === "long" || sel.type === "short") && drag.h > 0) { const o = drag.h === 1 ? 2 : 1; sel.pts[o] = {t: pt.t, p: sel.pts[o].p}; } }
       }
@@ -905,29 +990,95 @@ const DR = (() => {
     setTimeout(() => $("#drTxt", b).focus(), 250);
   }
 
-  /* ---------- меню инструментов ---------- */
+  /* ---------- выбор эмодзи, стикера, иконки и изображения ---------- */
+  const GLYPHS = {
+    emoji: "😀 😂 😍 😎 🤔 😱 😭 😡 🤑 🥳 🙏 👍 👎 👀 💪 🔥 💰 💎 🚀 🌙 ⭐ ⚡ ❤️ ✅ ❌ ⚠️ 📈 📉 🎯 🐂 🐻 🐳".split(" "),
+    sticker: "🚀 🔥 💰 💎 🐂 🐻 🐳 🎯 🏆 🤑 😱 💥 🌕 📈 📉 🙌 ⏰ 🧠 🔔 🎉".split(" "),
+    icon: "★ ♥ ✓ ✕ ▲ ▼ ● ■ ◆ ⚑ ⚡ ☀ ☾ ✚ ✖ ⬆ ⬇ ➜ ⬅ ✦".split(" ")
+  };
+  function pickGlyph(kind, cb) {
+    let done = false;
+    const b = sheet(T(kind === "emoji" ? "Эмодзи" : kind === "sticker" ? "Стикеры" : "Иконки"),
+      `<div class="pick">${GLYPHS[kind].map(g => `<button data-g="${g}" ${kind === "icon" ? 'style="font-size:24px;color:#f23645"' : ""}>${g}</button>`).join("")}</div>`, () => { if (!done) cb(null); });
+    $$("[data-g]", b).forEach(x => x.onclick = () => { done = true; closeSheet(); cb(x.dataset.g); });
+  }
+  function pickImage(cb) {
+    const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*";
+    let got = false;
+    inp.onchange = () => {
+      const f = inp.files && inp.files[0]; if (!f) return cb(null); got = true;
+      const im = new Image(); im.onload = () => {
+        const k = Math.min(1, 600 / Math.max(im.width, im.height)), c = document.createElement("canvas");
+        c.width = Math.round(im.width * k); c.height = Math.round(im.height * k); c.getContext("2d").drawImage(im, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(im.src); cb(c.toDataURL("image/jpeg", 0.82));
+      };
+      im.onerror = () => cb(null); im.src = URL.createObjectURL(f);
+    };
+    window.addEventListener("focus", () => setTimeout(() => { if (!got && !inp.files.length) cb(null); }, 800), {once: true});
+    inp.click();
+  }
+
+  /* ---------- меню «Объекты рисования» как в TradingView ---------- */
+  const TABS = [["fav", "Избранное"], ["tools", "Инструменты"], ["lines", "Линии тренда"], ["fib", "Ганн и Фибоначчи"], ["pat", "Паттерны"],
+    ["meas", "Измерение и прогнозирование"], ["shapes", "Геометрические фигуры"], ["text", "Комментирование"], ["vis", "Визуальные элементы"]];
+  const ORDER = {
+    lines: ["trend", "ray", "info", "ext", "angle", "h", "hray", "v", "cross", "channel", "regr", "flat", "dchan", "pitch", "schiff", "mschiff", "ipitch", "vilka"],
+    fib: ["fib", "fibext", "fibch", "fibtime", "fibfan", "fibtrtime", "fibcirc", "fibspiral", "fibarc", "fibwedge", "pitchfan", "gannbox", "gannfix", "gannsq", "gannfan"],
+    pat: ["xabcd", "cypher", "hs", "abcd", "tripat", "threed", "impulse", "corr", "etri", "dbl", "trip", "cyclic", "tcycle", "sine"],
+    meas: ["long", "short", "forecast", "barpat", "projection", "sector", "avwap", "vpfix", "vpanc", "prange", "drange", "measure"],
+    shapes: ["brush", "marker", "arrowmk", "arrow", "arrowup", "arrowdn", "rect", "rrect", "path", "circle", "ellipse", "poly", "triangle", "arc", "curve", "dcurve"],
+    text: ["text", "atext", "note", "pnote", "pin", "table", "callout", "comment", "plabel", "signpost", "flag", "image", "alert"],
+    vis: ["emoji", "sticker", "iconset"]
+  };
+  const magName = () => T(opt.mag === "strong" ? "Сильный магнит" : opt.mag === "off" ? "Магнит выключен" : "Слабый магнит");
+  function toolTiles() {
+    return [
+      ["ruler", "Линейка", () => { closeSheet(); setTool("ruler"); }],
+      ["eraser", "Ластик", () => { closeSheet(); setTool("eraser"); }],
+      ["keep", "Продолжить рисовать", () => { opt.keep = !opt.keep; saveOpt(); }, opt.keep],
+      ["hide", "Скрыть объекты рисования", () => { opt.hide = !opt.hide; saveOpt(); dirty = true; }, opt.hide],
+      ["lockall", "Зафиксировать все объекты", () => { opt.lockAll = !opt.lockAll; saveOpt(); }, opt.lockAll],
+      ["magnet", magName(), () => { opt.mag = opt.mag === "weak" ? "strong" : opt.mag === "strong" ? "off" : "weak"; saveOpt(); }, opt.mag !== "off", 1],
+      ["trash", "Удалить все объекты", () => { if (list.length && confirm(T("Удалить все рисунки на этом графике?"))) { list = []; save(); deselect(); closeSheet(); } }, null, 0, !list.length],
+      ["zoomin", "Увеличить масштаб", () => { const t = ts(); t.applyOptions({barSpacing: Math.min(60, (t.options().barSpacing || 7) * 1.4)}); }],
+      ["zoomout", "Уменьшить масштаб", () => { const t = ts(); t.applyOptions({barSpacing: Math.max(1, (t.options().barSpacing || 7) / 1.4)}); }]
+    ];
+  }
   function menu() {
     if (tool) { setTool(null); return; }
-    const cats = {}; for (const [k, v] of Object.entries(TL)) (cats[v[1]] = cats[v[1]] || []).push([k, v[2]]);
-    const fav = LS.get("drFav", ["trend", "h", "ray", "fib", "rect", "long", "short", "text"]);
-    const b = sheet(T("Рисование"), `
-      <div class="tabs" style="flex-wrap:wrap">
-        <button data-o="mag" class="${opt.mag ? "on" : ""}">🧲 ${esc(T("Магнит"))}</button>
-        <button data-o="keep" class="${opt.keep ? "on" : ""}">✎ ${esc(T("Рисовать подряд"))}</button>
-        <button data-o="hide" class="${opt.hide ? "on" : ""}">👁 ${esc(T("Скрыть рисунки"))}</button>
-        <button data-o="clr" style="color:var(--dn)">🗑 ${esc(T("Удалить все рисунки"))}</button></div>
-      <div class="tgrid">${fav.filter(k => TL[k]).map(k => `<button data-t="${k}" class="fav">${esc(T(TL[k][2]))}</button>`).join("")}</div>
-      ${Object.entries(cats).map(([c, arr]) => `<div class="sec">${esc(T(C[c]))}</div><div class="tgrid">${arr.map(([k, n]) => `<button data-t="${k}">${esc(T(n))}</button>`).join("")}</div>`).join("")}
-      <div style="height:10px"></div>`);
-    $$("[data-t]", b).forEach(x => x.onclick = () => {
-      const k = x.dataset.t, f = LS.get("drFav", fav).filter(y => y !== k); f.unshift(k); LS.set("drFav", f.slice(0, 8));
-      closeSheet(); setTool(k);
-    });
-    $$("[data-o]", b).forEach(x => x.onclick = () => {
-      const o = x.dataset.o;
-      if (o === "clr") { if (list.length && confirm(T("Удалить все рисунки на этом графике?"))) { list = []; save(); deselect(); } closeSheet(); return; }
-      opt[o] = !opt[o]; saveOpt(); x.classList.toggle("on", opt[o]); dirty = true;
-    });
+    let tab = LS.get("drTab", "lines"), q = "";
+    const b = sheet(T("Объекты рисования"), `<div class="dsrch"><svg class="i" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg><input id="dQ" placeholder="${esc(T("Поиск"))}" autocomplete="off"></div>
+      <div class="dtabs" id="dTabs">${TABS.map(([k, n]) => `<button data-tab="${k}" class="${k === tab ? "on" : ""}">${esc(T(n))}</button>`).join("")}</div><div class="scr" id="dScr"></div>`);
+    b.className = "sb dsb"; b.style.height = "78vh";
+    const tile = (k, label, on, dis, extra) => `<button data-k="${k}" class="${extra != null ? "tg" + (on ? " on" : "") : ""}${dis ? " dis" : ""}">${ICN[k] || ICN.trend}<span>${esc(label)}</span>${LS.get("drFav2", []).includes(k) ? '<i class="fv">★</i>' : ""}</button>`;
+    const draw = () => {
+      const sc = $("#dScr", b), fav = LS.get("drFav2", []);
+      $("#dTabs", b).style.display = q ? "none" : "";
+      let keys;
+      if (q) { const s = q.toLowerCase(); keys = Object.keys(TL).filter(k => TL[k][1] !== "X" && (T(TL[k][2]).toLowerCase().includes(s) || TL[k][2].toLowerCase().includes(s))); }
+      else if (tab === "tools") {
+        const tt = toolTiles();
+        sc.innerHTML = `<div class="dgrid">${tt.map(([k, n, , on, , dis], i) => `<button data-i="${i}" class="${i >= 2 && i <= 6 ? "tg" + (on ? " on" : "") : ""}${dis ? " dis" : ""}">${ICN[k]}<span>${esc(T(n))}</span></button>`).join("")}</div>`;
+        $$("[data-i]", sc).forEach(x => x.onclick = () => { tt[+x.dataset.i][2](); if ($("#sheet").classList.contains("on")) draw(); });
+        return;
+      } else if (tab === "fav") keys = fav.filter(k => TL[k]);
+      else keys = ORDER[tab] || [];
+      if (!keys.length) {
+        sc.innerHTML = tab === "fav" && !q ? `<div class="ghost">${'<svg viewBox="0 0 120 120"><path d="M30 104V48a30 30 0 0 1 60 0v56l-10-8-10 8-10-8-10 8-10-8z"/><path d="M30 64 14 76M90 64l16 12"/><circle cx="50" cy="52" r="2.5"/><circle cx="70" cy="52" r="2.5"/></svg>'}<b>${esc(T("В избранном ничего нет"))}</b>${esc(T("Просмотрите категории выше и добавьте нужное в избранное с помощью долгого нажатия."))}</div>`
+          : `<div class="empty">${esc(T("Ничего не найдено"))}</div>`;
+        return;
+      }
+      sc.innerHTML = `<div class="dgrid">${keys.map(k => tile(k, T(TL[k][2]))).join("")}</div>`;
+      $$("[data-k]", sc).forEach(x => longPress(x, () => {
+        const f = LS.get("drFav2", []), k = x.dataset.k, i = f.indexOf(k);
+        if (i >= 0) f.splice(i, 1); else f.push(k);
+        LS.set("drFav2", f); toast(i >= 0 ? T("Удалено из избранного") : T("Добавлено в избранное")); draw();
+      }, () => { closeSheet(); setTool(x.dataset.k); }));
+    };
+    $$("[data-tab]", b).forEach(x => x.onclick = () => { tab = x.dataset.tab; LS.set("drTab", tab); $$("[data-tab]", b).forEach(y => y.classList.toggle("on", y === x)); draw(); });
+    $("#dQ", b).oninput = e => { q = e.target.value.trim(); draw(); };
+    draw();
+    const on = $("#dTabs .on", b); if (on) on.scrollIntoView({inline: "center", block: "nearest"});
   }
 
   /* ---------- загрузка по инструменту, перенос старых рисунков ---------- */

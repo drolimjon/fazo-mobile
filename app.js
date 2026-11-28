@@ -1,7 +1,7 @@
 /* Fazo Mobile — веб-версия терминала для телефона (PWA).
    Работает без ПК: котировки берёт сам браузер у Binance, Binance Futures, Bybit и cTrader (Open API, JSON через WebSocket). */
 "use strict";
-const VER = "1.2.1";
+const VER = "1.3.0";
 const LWC = window.LightweightCharts;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -14,7 +14,15 @@ const LS = {
 
 /* ================= язык ================= */
 const EN = {
-  "График": "Chart", "Котировки": "Watchlist", "Алерты": "Alerts", "Настройки": "Settings", "Изменить": "Edit", "Готово": "Done",
+  "Список котировок": "Watchlist", "Добавить": "Add", "Меню": "Menu", "Интервал": "Interval", "ИЗБРАННОЕ": "FAVORITES", "МИНУТЫ": "MINUTES", "ЧАСЫ": "HOURS", "ДНИ": "DAYS",
+  "Добавьте интервал в избранное при помощи долгого нажатия": "Add an interval to favorites with a long press", "Удалено из избранного": "Removed from favorites", "Добавлено в избранное": "Added to favorites",
+  "Индексы": "Indices", "Акции": "Stocks", "Форекс": "Forex", "Металлы и сырьё": "Metals & commodities", "Криптовалюта": "Crypto",
+  "Fazo для компьютера": "Fazo for desktop", "Полная версия терминала для Windows: стратегии, ИИ, MT5 и все инструменты.": "The full terminal for Windows: strategies, AI, MT5 and every tool.",
+  "Перейти на сайт": "Visit the website", "Сортировать по": "Sort by", "Оповещение для списка": "Alerts for the list", "Добавить инструмент": "Add symbol",
+  "Вручную": "Manual", "Названию": "Name", "Изменению: сначала рост": "Change: gainers first", "Изменению: сначала падение": "Change: losers first", "Цене": "Price",
+  "Тема": "Theme", "Светлая": "Light", "Тёмная": "Dark", "Системная тема": "System theme", "Изменение темы в зависимости от настроек телефона": "Follows the phone settings",
+  "Fazo для ПК": "Fazo for PC", "Торгуйте со своим брокером": "Trade with your broker", "ИНСТРУМЕНТЫ": "TOOLS", "Объекты рисования": "Drawing tools", "Оповещения": "Alerts",
+  "Сайт Fazo": "Fazo website", "Поддержка": "Support",   "График": "Chart", "Котировки": "Watchlist", "Алерты": "Alerts", "Настройки": "Settings", "Изменить": "Edit", "Готово": "Done",
   "Таймфрейм": "Timeframe", "Тип графика": "Chart type", "Свечи": "Candles", "Бары": "Bars", "Линия": "Line", "Область": "Area",
   "Хейкин-Аши": "Heikin Ashi", "Индикаторы": "Indicators", "Рисование": "Drawing", "Горизонтальная линия": "Horizontal line",
   "Линия тренда": "Trend line", "Удалить все рисунки": "Remove all drawings", "Рисунки на графике": "Drawings on chart",
@@ -401,23 +409,112 @@ class CTrader {
   }
 }
 
+/* ---------- Yahoo Finance (через посредника /yf на нашем же сайте) ---------- */
+function yahooSrc() {
+  const YI = {"1m": ["1m", 1], "3m": ["1m", 3], "5m": ["5m", 1], "15m": ["15m", 1], "30m": ["30m", 1], "1h": ["60m", 1], "2h": ["60m", 2], "4h": ["60m", 4],
+    "1d": ["1d", 1], "1w": ["1wk", 1], "1M": ["1mo", 1]};
+  const MAXR = {"1m": 7 * 86400, "5m": 59 * 86400, "15m": 59 * 86400, "30m": 59 * 86400, "60m": 720 * 86400};
+  const BASE = {"1m": 60, "5m": 300, "15m": 900, "30m": 1800, "60m": 3600, "1d": 86400, "1wk": 604800, "1mo": 2592000};
+  const POP = [["^GSPC", "S&P 500"], ["^NDX", "Nasdaq 100"], ["^DJI", "Dow Jones"], ["^IXIC", "Nasdaq Composite"], ["^RUT", "Russell 2000"], ["^VIX", "VIX"],
+    ["^FTSE", "FTSE 100"], ["^GDAXI", "DAX"], ["^N225", "Nikkei 225"], ["^HSI", "Hang Seng"], ["GC=F", "Gold Futures"], ["SI=F", "Silver Futures"], ["CL=F", "Crude Oil"],
+    ["BZ=F", "Brent Crude"], ["NG=F", "Natural Gas"], ["EURUSD=X", "EUR/USD"], ["GBPUSD=X", "GBP/USD"], ["USDJPY=X", "USD/JPY"], ["USDRUB=X", "USD/RUB"],
+    ["AAPL", "Apple"], ["MSFT", "Microsoft"], ["NVDA", "NVIDIA"], ["TSLA", "Tesla"], ["AMZN", "Amazon"], ["GOOGL", "Alphabet"], ["META", "Meta"], ["BTC-USD", "Bitcoin USD"]];
+  const agg = (bars, k, sec) => {
+    if (k === 1) return bars; const out = [];
+    for (const b of bars) {
+      const t = Math.floor(b.time / sec) * sec, o = out[out.length - 1];
+      if (o && o.time === t) { o.high = Math.max(o.high, b.high); o.low = Math.min(o.low, b.low); o.close = b.close; o.volume += b.volume; }
+      else out.push(Object.assign({}, b, {time: t}));
+    }
+    return out;
+  };
+  async function chart(sym, iv, p1, p2) {
+    const j = await getJSON(`/yf/v8/finance/chart/${encodeURIComponent(sym)}?interval=${iv}&period1=${Math.floor(p1)}&period2=${Math.floor(p2)}&includePrePost=false`);
+    const r = j.chart && j.chart.result && j.chart.result[0];
+    if (!r) throw new Error((j.chart && j.chart.error && j.chart.error.description) || "Yahoo: no data");
+    const ts = r.timestamp || [], q = (r.indicators && r.indicators.quote && r.indicators.quote[0]) || {}, bars = [];
+    for (let i = 0; i < ts.length; i++) {
+      if (q.close[i] == null || q.open[i] == null) continue;
+      bars.push({time: ts[i], open: q.open[i], high: q.high[i], low: q.low[i], close: q.close[i], volume: q.volume && q.volume[i] || 0});
+    }
+    return {bars, meta: r.meta || {}};
+  }
+  const digitsOf = (meta, bars) => meta.priceHint != null ? Math.min(6, Math.max(2, meta.priceHint)) : decOf(bars.slice(-50).map(b => String(+b.close.toFixed(6))));
+  const src = {
+    id: "YAHOO", label: "Yahoo Finance",
+    async history(sym, tf, limit, endSec) {
+      const [iv, k] = YI[tf], sec = BASE[iv], p2 = endSec ? endSec - 1 : Date.now() / 1000 + 60;
+      let span = limit * k * sec * (sec < 86400 ? 3.2 : 1.6);              // с запасом на выходные и ночь
+      if (MAXR[iv]) {
+        const oldest = Date.now() / 1000 - MAXR[iv];
+        if (p2 <= oldest) return {bars: [], digits: 2};
+        span = Math.min(span, p2 - oldest);
+      }
+      const {bars, meta} = await chart(sym, iv, Math.max(0, p2 - span), p2);
+      const out = agg(bars.filter(b => b.time < p2 + 1), k, TF_SEC[tf]).slice(-limit);
+      return {bars: out, digits: digitsOf(meta, bars)};
+    },
+    kline(sym, tf, cb) {                                    // у Yahoo нет потока — опрос раз в 10 с
+      let stop = false;
+      const tick = async () => {
+        if (stop) return;
+        if (!document.hidden) { try { const r = await src.history(sym, tf, 3); r.bars.forEach(b => cb(b)); } catch (e) {} }
+        if (!stop) setTimeout(tick, 10000);
+      };
+      setTimeout(tick, 10000);
+      return () => { stop = true; };
+    },
+    ticker(syms, cb) {
+      let stop = false;
+      const poll = async () => {
+        if (stop) return;
+        if (!document.hidden) for (let i = 0; i < syms.length; i += 20) {
+          try {
+            const part = syms.slice(i, i + 20);
+            const j = await getJSON(`/yf/v8/finance/spark?symbols=${part.map(encodeURIComponent).join(",")}&range=1d&interval=5m`);
+            const res = j.spark && j.spark.result ? j.spark.result.map(x => [x.symbol, x.response && x.response[0]]) : Object.entries(j).map(([s, v]) => [s, v]);
+            for (const [s, r] of res) {
+              if (!r) continue;
+              const m = r.meta || r, closes = (r.indicators && r.indicators.quote && r.indicators.quote[0].close) || r.close || [];
+              const last = m.regularMarketPrice != null ? m.regularMarketPrice : closes.filter(x => x != null).pop();
+              const prev = m.chartPreviousClose != null ? m.chartPreviousClose : m.previousClose;
+              if (last != null) cb(s, {last, chg: prev ? (last - prev) / prev * 100 : null, d: m.priceHint != null ? Math.min(6, Math.max(2, m.priceHint)) : null});
+            }
+          } catch (e) {}
+        }
+        if (!stop) setTimeout(poll, 15000);
+      };
+      poll();
+      return () => { stop = true; };
+    },
+    async search(q) {
+      if (!q) return POP.map(([s, d]) => ({sym: s, d}));
+      const j = await getJSON(`/yf/v1/finance/search?q=${encodeURIComponent(q)}&quotesCount=25&newsCount=0&listsCount=0`);
+      return (j.quotes || []).filter(x => x.symbol).map(x => ({sym: x.symbol, d: [x.shortname || x.longname, x.exchDisp].filter(Boolean).join(" · ")}));
+    }
+  };
+  return src;
+}
+
 const CT = new CTrader();
 const SRC = {
   BINANCE: binanceSrc("BINANCE", "Binance", "https://api.binance.com", "https://data-api.binance.vision", "/api/v3", "wss://stream.binance.com:9443"),
   BINANCEF: binanceSrc("BINANCEF", "Binance Futures", "https://fapi.binance.com", null, "/fapi/v1", "wss://fstream.binance.com/market"),
   BYBIT: bybitSrc(),
+  YAHOO: yahooSrc(),
   CT
 };
-const SRC_TAG = {BINANCE: "Binance", BINANCEF: "Binance F", BYBIT: "Bybit", CT: "cTrader"};
+const SRC_TAG = {BINANCE: "Binance", BINANCEF: "Binance F", BYBIT: "Bybit", YAHOO: "Yahoo", CT: "cTrader"};
 const splitKey = k => { const i = k.indexOf(":"); return [k.slice(0, i), k.slice(i + 1)]; };
 
 /* ================= состояние ================= */
 // по умолчанию — то, что работает сразу без cTrader: форекс-фьючерсы Bybit, золото и серебро Binance Futures, крипта
-const DEF_WATCH = ["BYBIT:EURUSDUSDT", "BYBIT:GBPUSDUSDT", "BYBIT:USDJPYUSDT", "BINANCEF:XAUUSDT", "BINANCEF:XAGUSDT",
+const DEF_WATCH = ["YAHOO:^GSPC", "YAHOO:^NDX", "YAHOO:^DJI", "YAHOO:AAPL", "YAHOO:NVDA", "BYBIT:EURUSDUSDT", "BYBIT:GBPUSDUSDT", "BYBIT:USDJPYUSDT", "BINANCEF:XAUUSDT", "BINANCEF:XAGUSDT",
   "BINANCE:BTCUSDT", "BINANCE:ETHUSDT", "BINANCE:SOLUSDT", "BINANCE:XRPUSDT"];
 const OLD_WATCH = ["CT:EURUSD", "CT:GBPUSD", "CT:USDJPY", "CT:AUDUSD", "CT:USDCAD", "CT:USDCHF", "CT:XAUUSD",
   "BINANCE:BTCUSDT", "BINANCE:ETHUSDT", "BINANCE:SOLUSDT", "BINANCE:XRPUSDT", "BINANCE:PAXGUSDT"];
 if (JSON.stringify(LS.get("watch", null)) === JSON.stringify(OLD_WATCH)) LS.set("watch", DEF_WATCH);
+if (!LS.get("mig2", false)) { const w = LS.get("watch", null); if (w) { ["YAHOO:^GSPC", "YAHOO:^NDX"].forEach(k => { if (!w.includes(k)) w.unshift(k); }); LS.set("watch", w); } LS.set("mig2", true); }
 const S = {
   sym: LS.get("sym", "BINANCE:BTCUSDT"),
   tf: LS.get("tf", "1h"),
@@ -760,14 +857,133 @@ function renderAlertLines() {
 }
 
 /* ================= интерфейс ================= */
+const ICO = {
+  search: '<svg class="i" viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6.5"/><path d="m15.5 15.5 5 5"/></svg>',
+  dots: '<svg class="i" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/></svg>',
+  ham: '<svg class="i" viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h16"/></svg>',
+  chev: '<svg class="i" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>',
+  plus: '<svg class="i" viewBox="0 0 24 24" style="width:20px;height:20px"><path d="M12 5v14M5 12h14"/></svg>',
+  pen: '<svg class="i" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="m14 6 4 4"/></svg>',
+  sort: '<svg class="i" viewBox="0 0 24 24"><path d="M8 4v16M4 8l4-4 4 4M16 20V4M12 16l4 4 4-4"/></svg>',
+  bell: '<svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 9v4l2 2M5 4 2 7M19 4l3 3"/></svg>',
+  ghost: '<svg viewBox="0 0 120 120"><path d="M30 104V48a30 30 0 0 1 60 0v56l-10-8-10 8-10-8-10 8-10-8z"/><path d="M30 64 14 76M90 64l16 12"/><circle cx="50" cy="50" r="2.5" fill="currentColor"/><circle cx="70" cy="50" r="2.5" fill="currentColor"/></svg>'
+};
+const NUMF = {};
+const nf = (v, d) => {
+  if (v == null || isNaN(v)) return "—";
+  const k = LANG + d; NUMF[k] = NUMF[k] || new Intl.NumberFormat(LANG === "ru" ? "ru-RU" : "en-US", {minimumFractionDigits: d, maximumFractionDigits: d});
+  return NUMF[k].format(v);
+};
+
+/* ---- названия и значки инструментов ---- */
+const CUR = {EUR: ["Евро", "Euro", "🇪🇺"], USD: ["Доллар США", "U.S. Dollar", "🇺🇸"], GBP: ["Британский фунт", "British Pound", "🇬🇧"], JPY: ["Японская иена", "Japanese Yen", "🇯🇵"],
+  CHF: ["Швейцарский франк", "Swiss Franc", "🇨🇭"], CAD: ["Канадский доллар", "Canadian Dollar", "🇨🇦"], AUD: ["Австралийский доллар", "Australian Dollar", "🇦🇺"],
+  NZD: ["Новозеландский доллар", "New Zealand Dollar", "🇳🇿"], RUB: ["Российский рубль", "Russian Ruble", "🇷🇺"], CNY: ["Китайский юань", "Chinese Yuan", "🇨🇳"],
+  CNH: ["Китайский юань", "Chinese Yuan", "🇨🇳"], TRY: ["Турецкая лира", "Turkish Lira", "🇹🇷"], HKD: ["Гонконгский доллар", "Hong Kong Dollar", "🇭🇰"],
+  SGD: ["Сингапурский доллар", "Singapore Dollar", "🇸🇬"], MXN: ["Мексиканское песо", "Mexican Peso", "🇲🇽"], ZAR: ["Южноафриканский рэнд", "South African Rand", "🇿🇦"],
+  SEK: ["Шведская крона", "Swedish Krona", "🇸🇪"], NOK: ["Норвежская крона", "Norwegian Krone", "🇳🇴"], PLN: ["Польский злотый", "Polish Zloty", "🇵🇱"],
+  KZT: ["Казахстанский тенге", "Kazakhstani Tenge", "🇰🇿"], UZS: ["Узбекский сум", "Uzbekistani Som", "🇺🇿"], TJS: ["Таджикский сомони", "Tajikistani Somoni", "🇹🇯"],
+  XAU: ["Золото", "Gold", ""], XAG: ["Серебро", "Silver", ""], USDT: ["TetherUS", "TetherUS", ""]};
+const COIN = {BTC: "Bitcoin", ETH: "Ethereum", SOL: "Solana", XRP: "XRP", BNB: "BNB", DOGE: "Dogecoin", ADA: "Cardano", TON: "Toncoin", TRX: "TRON", LTC: "Litecoin",
+  AVAX: "Avalanche", LINK: "Chainlink", DOT: "Polkadot", PAXG: "PAX Gold", XAUT: "Tether Gold", SHIB: "Shiba Inu", PEPE: "Pepe", SUI: "Sui", NEAR: "NEAR",
+  APT: "Aptos", ARB: "Arbitrum", OP: "Optimism", ATOM: "Cosmos", UNI: "Uniswap", BCH: "Bitcoin Cash", ETC: "Ethereum Classic", FIL: "Filecoin", WIF: "dogwifhat"};
+const YNAME = {"^GSPC": ["SPX", "Индекс S&P 500", "S&P 500 Index"], "^NDX": ["NDX", "Индекс Nasdaq 100", "Nasdaq 100 Index"], "^DJI": ["DJI", "Индекс Dow Jones", "Dow Jones Industrial Average"],
+  "^IXIC": ["IXIC", "Nasdaq Composite", "Nasdaq Composite"], "^RUT": ["RUT", "Russell 2000", "Russell 2000"], "^VIX": ["VIX", "Индекс волатильности", "Volatility Index"],
+  "^FTSE": ["UKX", "FTSE 100", "FTSE 100"], "^GDAXI": ["DAX", "Индекс DAX", "DAX Index"], "^N225": ["NI225", "Nikkei 225", "Nikkei 225"], "^HSI": ["HSI", "Hang Seng", "Hang Seng"],
+  "GC=F": ["GC1!", "Золото (фьючерс)", "Gold Futures"], "SI=F": ["SI1!", "Серебро (фьючерс)", "Silver Futures"], "CL=F": ["CL1!", "Нефть WTI", "Crude Oil WTI"],
+  "BZ=F": ["BRN1!", "Нефть Brent", "Brent Crude Oil"], "NG=F": ["NG1!", "Природный газ", "Natural Gas"],
+  AAPL: ["AAPL", "Apple Inc.", "Apple Inc."], NVDA: ["NVDA", "NVIDIA Corporation", "NVIDIA Corporation"], MSFT: ["MSFT", "Microsoft Corporation", "Microsoft Corporation"],
+  TSLA: ["TSLA", "Tesla, Inc.", "Tesla, Inc."], AMZN: ["AMZN", "Amazon.com, Inc.", "Amazon.com, Inc."], GOOGL: ["GOOGL", "Alphabet Inc.", "Alphabet Inc."], META: ["META", "Meta Platforms, Inc.", "Meta Platforms, Inc."]};
+const isFx = s => /^[A-Z]{6}$/.test(s) && CUR[s.slice(0, 3)] && CUR[s.slice(3)];
+function symInfo(k) {
+  const [src, sym] = splitKey(k), en = LANG === "en";
+  let show = sym, desc = (S.names || {})[k] || "", kind = "crypto", base = sym, quote = "";
+  if (src === "YAHOO") {
+    const y = YNAME[sym];
+    if (y) { show = y[0]; desc = desc || y[en ? 2 : 1]; }
+    if (/=X$/.test(sym)) { show = sym.replace("=X", ""); kind = isFx(show) ? "fx" : "other"; base = show.slice(0, 3); quote = show.slice(3); }
+    else if (/=F$/.test(sym)) kind = /^(GC|SI)/.test(sym) ? "metal" : "commodity";
+    else if (sym[0] === "^") kind = "index";
+    else if (/-USD$/.test(sym)) { kind = "crypto"; base = sym.replace("-USD", ""); quote = "USD"; }
+    else kind = "stock";
+    if (kind === "metal") base = sym.startsWith("GC") ? "XAU" : "XAG";
+  } else {
+    const m = sym.match(/^([A-Z]{6})USDT$/);
+    let core = src === "BYBIT" && m && isFx(m[1]) ? m[1] : sym;
+    if (src === "BYBIT" && m && isFx(m[1])) show = m[1];
+    if (isFx(core)) { kind = "fx"; base = core.slice(0, 3); quote = core.slice(3); }
+    else {
+      const q = core.match(/^(.+?)(USDT|USDC|USD|BUSD|FDUSD|BTC|ETH)$/);
+      base = q ? q[1] : core; quote = q ? q[2] : "";
+      if (base === "XAU" || base === "XAG") kind = "metal";
+    }
+  }
+  if (!desc) {
+    const nm = c => CUR[c] ? CUR[c][en ? 1 : 0] : COIN[c] || c;
+    if (kind === "fx" || kind === "metal") desc = nm(base) + (quote ? " / " + nm(quote) : "");
+    else if (kind === "crypto") desc = (COIN[base] || base) + (quote ? " / " + nm(quote) : "");
+  }
+  return {src, sym, show, desc, kind, base, quote};
+}
+function symIcon(k, size) {
+  const i = symInfo(k), st = size ? `style="width:${size}px;height:${size}px"` : "";
+  if (i.kind === "fx") return `<div class="fx2" ${st}><span>${CUR[i.base][2] || i.base[0]}</span><span>${CUR[i.quote][2] || i.quote[0]}</span></div>`;
+  if (i.kind === "metal") return `<div class="ic sic" ${st} style="background:${i.base === "XAU" ? "linear-gradient(135deg,#f7d774,#b8860b)" : "linear-gradient(135deg,#e8e8e8,#8a8a8a)"};color:#3a2a00">${i.base === "XAU" ? "Au" : "Ag"}</div>`;
+  if (i.kind === "index") {
+    const lab = {"^GSPC": ["500", "#b71c1c"], "^NDX": ["100", "#00838f"], "^DJI": ["30", "#1565c0"], "^IXIC": ["IX", "#00838f"], "^VIX": ["VIX", "#6a1b9a"]}[i.sym] || [i.show.slice(0, 3), "#37474f"];
+    return `<div class="ic sic" ${st} style="background:${lab[1]}">${esc(lab[0])}</div>`;
+  }
+  if (i.kind === "commodity") return `<div class="ic sic" ${st} style="background:#263238;font-size:18px">${/^(CL|BZ)/.test(i.sym) ? "🛢" : "🔥"}</div>`;
+  if (i.kind === "crypto") {
+    const fb = esc(i.base.slice(0, 3));
+    return `<div class="ic sic" ${st} style="background:${icColor(i.base)}">${fb}<img src="https://cdn.jsdelivr.net/gh/spothq/cryptocurrency-icons@master/128/color/${i.base.toLowerCase()}.png" alt="" loading="lazy"
+      style="position:absolute;inset:0;width:100%;height:100%;background:var(--bg)" onerror="this.remove()"></div>`;
+  }
+  return `<div class="ic sic" ${st} style="background:${icColor(i.show)}">${esc(i.show.slice(0, 4))}</div>`;
+}
+S.names = LS.get("names", {});
+
+/* ---- тема ---- */
+const THEMES = {
+  dark: {bg: "#000000", tx: "#b2b5be", grid: "#141414", bd: "#2a2a2a", lab: "#2e2e2e"},
+  light: {bg: "#ffffff", tx: "#131722", grid: "#f0f3fa", bd: "#e0e3eb", lab: "#131722"}
+};
+function isLight() { const m = LS.get("theme", "dark"); return m === "light" || (m === "system" && matchMedia("(prefers-color-scheme: light)").matches); }
+function applyTheme() {
+  const lt = isLight(), c = THEMES[lt ? "light" : "dark"];
+  document.documentElement.classList.toggle("light", lt);
+  const mt = document.querySelector('meta[name="theme-color"]'); if (mt) mt.content = c.bg;
+  const o = {layout: {background: {type: "solid", color: c.bg}, textColor: c.tx}, grid: {vertLines: {color: c.grid}, horzLines: {color: c.grid}},
+    rightPriceScale: {borderColor: c.bd}, timeScale: {borderColor: c.bd},
+    crosshair: {vertLine: {labelBackgroundColor: c.lab}, horzLine: {labelBackgroundColor: c.lab}}};
+  Object.assign(CH_OPT.layout, o.layout); CH_OPT.grid = o.grid;
+  CH_OPT.rightPriceScale.borderColor = c.bd; CH_OPT.timeScale.borderColor = c.bd;
+  if (G.chart) G.chart.applyOptions(o);
+  G.subs.forEach(s => s.chart.applyOptions(o));
+  if (typeof DR !== "undefined") DR.dirty();
+}
+matchMedia("(prefers-color-scheme: light)").addEventListener("change", applyTheme);
+function themeSheet() {
+  const m = LS.get("theme", "dark"), sys = m === "system", cur = sys ? (isLight() ? "light" : "dark") : m;
+  const ph = (bg, bar) => `<div class="ph" style="background:${bg}">${[1, 1, 0, 0, 1, 1, 1, 1].map(u => `<i><b style="width:8px;background:${bar}"></b><b style="width:26px;background:${bar}"></b><b style="width:22px;margin-left:auto;background:${u ? "#22ab94" : "#f7525f"}"></b></i>`).join("")}</div>`;
+  const b = sheet(T("Тема"), `<div class="thm">
+    <button data-m="light" class="${cur === "light" && !sys ? "on" : ""}">${ph("#fff", "#c9cbd1")}<span class="rd"></span>${esc(T("Светлая"))}</button>
+    <button data-m="dark" class="${cur === "dark" && !sys ? "on" : ""}">${ph("#111", "#3a3a3a")}<span class="rd"></span>${esc(T("Тёмная"))}</button></div>
+    <button class="opt" id="thSys" style="height:auto;padding:12px 18px"><span style="flex:1"><b style="font-weight:500">${esc(T("Системная тема"))}</b><br><small style="color:var(--mu)">${esc(T("Изменение темы в зависимости от настроек телефона"))}</small></span><span class="sw ${sys ? "on" : ""}"></span></button>`);
+  $$("[data-m]", b).forEach(x => x.onclick = () => { LS.set("theme", x.dataset.m); applyTheme(); themeSheet(); });
+  $("#thSys", b).onclick = () => { LS.set("theme", sys ? (isLight() ? "light" : "dark") : "system"); applyTheme(); themeSheet(); };
+}
+
 function toast(t, ms = 2200) {
   const e = $("#toast"); e.textContent = t; e.classList.add("on");
   clearTimeout(toast.t); toast.t = setTimeout(() => e.classList.remove("on"), ms);
 }
 function go(id) {
+  closeMenu();
   $$(".page").forEach(p => p.classList.toggle("on", p.id === id));
   $$("#nav button").forEach(b => b.classList.toggle("on", b.dataset.p === id));
   $("#top").style.display = id === "pgChart" ? "" : "none";
+  LS.set("page", id);
   if (id === "pgWatch") renderWatch();
   if (id === "pgAlerts") renderAlerts();
   if (id === "pgSet") renderSettings();
@@ -775,7 +991,8 @@ function go(id) {
 }
 let sheetClose = null;
 function sheet(title, html, onClose) {
-  $("#shT").textContent = title; $("#shB").innerHTML = html;
+  closeMenu();
+  $("#shT").textContent = title; $("#shB").innerHTML = html; $("#shB").className = "sb"; $("#shB").scrollTop = 0;
   $("#ov").classList.add("on"); $("#sheet").classList.add("on");
   sheetClose = onClose || null;
   return $("#shB");
@@ -784,11 +1001,45 @@ function closeSheet() {
   $("#ov").classList.remove("on"); $("#sheet").classList.remove("on");
   const f = sheetClose; sheetClose = null; f && f();
 }
+/* всплывающее меню */
+function popMenu(anchor, items) {
+  const m = $("#popMenu");
+  m.innerHTML = items.map((it, i) => `<button data-i="${i}"><span>${esc(T(it[0]))}</span>${it[1] || ""}</button>`).join("");
+  const r = anchor.getBoundingClientRect();
+  m.style.left = Math.max(8, Math.min(r.left - 10, innerWidth - 290)) + "px"; m.style.top = (r.top - 4) + "px";
+  m.classList.add("on");
+  $$("button", m).forEach(b => b.onclick = e => { e.stopPropagation(); closeMenu(); items[+b.dataset.i][2](); });
+  setTimeout(() => document.addEventListener("click", closeMenu, {once: true}), 0);
+}
+function closeMenu() { const m = $("#popMenu"); if (m) m.classList.remove("on"); }
 
-/* ---- таймфрейм / тип ---- */
+/* ---- интервалы (как в TradingView) ---- */
+const TF_GROUPS = [["МИНУТЫ", ["1m", "3m", "5m", "15m", "30m"]], ["ЧАСЫ", ["1h", "2h", "4h"]], ["ДНИ", ["1d", "1w", "1M"]]];
+const tfLabel = t => {
+  const n = parseInt(t), u = t.replace(/\d+/, ""), ru = LANG === "ru";
+  return n + ({m: ru ? "м" : "m", h: ru ? "ч" : "h", d: ru ? "Д" : "D", w: ru ? "Н" : "W", M: ru ? "М" : "M"}[u] || u);
+};
 function tfSheet() {
-  const b = sheet(T("Таймфрейм"), `<div class="grid">${TFS.map(t => `<button data-tf="${t}" class="${t === S.tf ? "on" : ""}">${t}</button>`).join("")}</div>`);
-  $$("[data-tf]", b).forEach(e => e.onclick = () => { S.tf = e.dataset.tf; save("tf"); closeSheet(); loadChart(); });
+  const fav = LS.get("tfFav", []), tipOff = LS.get("tfTip", false);
+  const row = arr => `<div class="tfrow">${arr.map(t => `<button data-tf="${t}" class="${t === S.tf ? "on" : ""}">${tfLabel(t)}${fav.includes(t) ? '<i class="fv">★</i>' : ""}</button>`).join("")}</div>`;
+  const b = sheet(T("Интервал"), `${tipOff ? "" : `<div class="tip"><span style="font-size:26px">☆</span><span>${esc(T("Добавьте интервал в избранное при помощи долгого нажатия"))}</span><button class="cl" id="tipX">✕</button></div>`}
+    ${fav.length ? `<div class="tfsec" style="border:0">${esc(T("ИЗБРАННОЕ"))}</div>${row(TFS.filter(t => fav.includes(t)))}` : ""}
+    ${TF_GROUPS.map(([g, arr], i) => `<div class="tfsec" ${!i && !fav.length ? 'style="border:0"' : ""}>${esc(T(g))}</div>${row(arr)}`).join("")}`);
+  const tx = $("#tipX", b); if (tx) tx.onclick = () => { LS.set("tfTip", true); tfSheet(); };
+  $$("[data-tf]", b).forEach(e => longPress(e, () => {
+    const f = LS.get("tfFav", []), t = e.dataset.tf, i = f.indexOf(t);
+    if (i >= 0) f.splice(i, 1); else f.push(t);
+    LS.set("tfFav", f); toast(i >= 0 ? T("Удалено из избранного") : T("Добавлено в избранное")); tfSheet();
+  }, () => { S.tf = e.dataset.tf; save("tf"); closeSheet(); loadChart(); }));
+}
+/* долгое нажатие + обычное нажатие */
+function longPress(el, onLong, onTap) {
+  let t = null, fired = false, sx = 0, sy = 0;
+  el.addEventListener("pointerdown", e => { fired = false; sx = e.clientX; sy = e.clientY; t = setTimeout(() => { fired = true; try { navigator.vibrate && navigator.vibrate(20); } catch (x) {} onLong(); }, 550); });
+  el.addEventListener("pointermove", e => { if (t && Math.hypot(e.clientX - sx, e.clientY - sy) > 10) { clearTimeout(t); t = null; } });
+  ["pointerup", "pointercancel", "pointerleave"].forEach(ev => el.addEventListener(ev, () => { clearTimeout(t); t = null; }));
+  el.addEventListener("contextmenu", e => e.preventDefault());
+  el.onclick = e => { if (fired) { e.preventDefault(); return; } onTap && onTap(e); };
 }
 const TYPES = [["candles", "Свечи"], ["ha", "Хейкин-Аши"], ["bars", "Бары"], ["line", "Линия"], ["area", "Область"]];
 function typeSheet() {
@@ -826,13 +1077,13 @@ function indSheet() {
 /* ---- поиск инструмента ---- */
 let searchSrc = LS.get("ssrc", "BINANCE");
 function searchSheet(mode) {                                    // mode: "open" — открыть на графике, "add" — в котировки
-  const b = sheet(T("Поиск инструмента"), `<div class="tabs">${Object.keys(SRC).map(k => `<button data-s="${k}" class="${k === searchSrc ? "on" : ""}">${SRC[k].label}</button>`).join("")}</div>
-    <div class="srch"><input id="sq" placeholder="${esc(T("Введите название, например BTC"))}" autocomplete="off" autocapitalize="characters" spellcheck="false"></div><div id="sr"></div>`);
+  const b = sheet(T("Поиск инструмента"), `<div class="dsrch">${ICO.search}<input id="sq" placeholder="${esc(T("Введите название, например BTC"))}" autocomplete="off" autocapitalize="characters" spellcheck="false"></div>
+    <div class="dtabs">${Object.keys(SRC).map(k => `<button data-s="${k}" class="${k === searchSrc ? "on" : ""}">${SRC[k].label}</button>`).join("")}</div><div id="sr"></div>`);
   let tm, n = 0;
   const run = async () => {
     const my = ++n, q = $("#sq").value.trim(), out = $("#sr");
     if (searchSrc === "CT" && !CT.configured()) {
-      out.innerHTML = `<div class="empty">${esc(T("Этот инструмент идёт через cTrader. Подключите cTrader в настройках."))}<br><br><button class="btn pri" style="padding:8px 14px;border-radius:8px;background:var(--bl);color:#fff" id="toSet">${esc(T("Настроить cTrader"))}</button></div>`;
+      out.innerHTML = `<div class="empty">${esc(T("Этот инструмент идёт через cTrader. Подключите cTrader в настройках."))}<br><br><button class="btn pri" style="padding:10px 16px;border-radius:12px;background:var(--bl);color:#fff" id="toSet">${esc(T("Настроить cTrader"))}</button></div>`;
       $("#toSet").onclick = () => { closeSheet(); go("pgSet"); }; return;
     }
     out.innerHTML = `<div class="empty">${esc(T("Загрузка…"))}</div>`;
@@ -841,16 +1092,18 @@ function searchSheet(mode) {                                    // mode: "open" 
       if (my !== n) return;
       out.innerHTML = r.length ? r.map(x => {
         const k = searchSrc + ":" + x.sym, inW = S.watch.includes(k);
-        return `<div class="row" data-k="${esc(k)}"><div class="ic" style="background:${icColor(x.sym)}">${esc(x.sym.slice(0, 3))}</div>
-          <div class="nm"><b>${esc(x.sym)}</b><small>${esc(x.d || SRC[searchSrc].label)}</small></div>
-          <button class="x" data-w="${esc(k)}" style="color:${inW ? "#f5c542" : "var(--mu)"};font-size:22px">${inW ? "★" : "☆"}</button></div>`;
+        if (x.d && !S.names[k] && searchSrc === "YAHOO") S.names[k] = x.d;
+        const i = symInfo(k);
+        return `<div class="row" data-k="${esc(k)}" data-d="${esc(x.d || "")}">${symIcon(k)}
+          <div class="nm"><b>${esc(i.show)}</b><small>${esc(x.d || i.desc || SRC[searchSrc].label)}</small></div>
+          <button class="x" data-w="${esc(k)}" style="color:${inW ? "#f5c542" : "var(--mu)"};font-size:24px">${inW ? "★" : "☆"}</button></div>`;
       }).join("") : `<div class="empty">${esc(T("Ничего не найдено"))}</div>`;
       $$(".row", out).forEach(e => e.onclick = ev => {
         if (ev.target.dataset.w) return;
-        const k = e.dataset.k;
-        if (mode === "add") addWatch(k, ev.target); else { closeSheet(); openSym(k); }
+        const k = e.dataset.k; if (e.dataset.d) { S.names[k] = e.dataset.d; LS.set("names", S.names); }
+        if (mode === "add") addWatch(k, e.querySelector("[data-w]")); else { closeSheet(); openSym(k); }
       });
-      $$("[data-w]", out).forEach(e => e.onclick = () => addWatch(e.dataset.w, e));
+      $$("[data-w]", out).forEach(e => e.onclick = () => { const r = e.closest(".row"); if (r.dataset.d) { S.names[r.dataset.k] = r.dataset.d; LS.set("names", S.names); } addWatch(e.dataset.w, e); });
     } catch (e) { if (my === n) out.innerHTML = `<div class="empty dn">${esc(e.message || e)}</div>`; }
   };
   $$("[data-s]", b).forEach(e => e.onclick = () => { searchSrc = e.dataset.s; LS.set("ssrc", searchSrc); $$("[data-s]", b).forEach(x => x.classList.toggle("on", x === e)); run(); });
@@ -862,28 +1115,58 @@ function addWatch(k, btn) {
   else { S.watch.push(k); toast(T("Добавлено в котировки")); if (btn && btn.dataset && btn.dataset.w) { btn.textContent = "★"; btn.style.color = "#f5c542"; } }
   save("watch"); syncTickers(); renderWatch();
 }
-function icColor(s) { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360; return `hsl(${h},45%,32%)`; }
+function icColor(s) { let h = 0; for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360; return `hsl(${h},45%,38%)`; }
 
-/* ---- котировки ---- */
+/* ---- котировки (главная страница, как в TradingView) ---- */
 let wEdit = false;
+const GROUPS = [["index", "Индексы"], ["stock", "Акции"], ["fx", "Форекс"], ["metal", "Металлы и сырьё"], ["crypto", "Криптовалюта"]];
+const groupOf = k => { const i = symInfo(k); return i.kind === "commodity" ? "metal" : i.kind === "other" ? "fx" : i.kind; };
+const SITE = "https://fazo-terminal.pages.dev";
+function promoHTML() {
+  if (LS.get("promoOff", 0) > Date.now()) return "";
+  return `<div class="promo"><i class="star" style="left:62%;top:22%">✦</i><i class="star" style="left:78%;top:70%">✦</i><i class="star" style="left:56%;top:78%">✦</i>
+    <h4>${esc(T("Fazo для компьютера"))}</h4><p>${esc(T("Полная версия терминала для Windows: стратегии, ИИ, MT5 и все инструменты."))}</p>
+    <a href="${SITE}" target="_blank" rel="noopener">${esc(T("Перейти на сайт"))}</a><img src="logo.png" alt=""><button class="cl" id="promoX">✕</button></div>`;
+}
+function sortedKeys(keys) {
+  const m = LS.get("wsort", "manual");
+  if (m === "manual") return keys;
+  const a = keys.slice(), q = k => Q[k] || {};
+  if (m === "name") a.sort((x, y) => symInfo(x).show.localeCompare(symInfo(y).show));
+  if (m === "chgD") a.sort((x, y) => (q(y).chg ?? -1e9) - (q(x).chg ?? -1e9));
+  if (m === "chgA") a.sort((x, y) => (q(x).chg ?? 1e9) - (q(y).chg ?? 1e9));
+  if (m === "price") a.sort((x, y) => (q(y).last ?? 0) - (q(x).last ?? 0));
+  return a;
+}
 function renderWatch() {
   const L = $("#wList");
-  $("#wEdit").textContent = T(wEdit ? "Готово" : "Изменить");
-  if (!S.watch.length) { L.innerHTML = `<div class="empty">${esc(T("Список пуст. Нажмите ＋, чтобы добавить инструмент."))}</div>`; return; }
-  L.innerHTML = S.watch.map((k, i) => {
-    const [s, y] = splitKey(k);
-    return `<div class="row" data-k="${esc(k)}" data-i="${i}"><div class="ic" style="background:${icColor(y)}">${esc(y.slice(0, 3))}</div>
-      <div class="nm"><b>${esc(y)}</b><small>${esc(SRC_TAG[s] || s)}${s === "CT" && !CT.configured() ? " · " + esc(T("Не настроен")) : ""}</small></div>
-      ${wEdit ? `<span class="dr" data-up="${i}">▲</span><span class="dr" data-dn="${i}">▼</span><button class="x" data-rm="${esc(k)}">✕</button>` : `<div class="pr" id="q_${cssId(k)}"></div>`}</div>`;
-  }).join("");
+  $("#wListBtn").innerHTML = `${esc(T(wEdit ? "Готово" : "Список котировок"))}`;
+  const col = LS.get("wcol", {});
+  let html = promoHTML();
+  if (!S.watch.length) html += `<div class="empty">${esc(T("Список пуст. Нажмите ＋, чтобы добавить инструмент."))}</div>`;
+  for (const [g, title] of GROUPS) {
+    const keys = sortedKeys(S.watch.filter(k => groupOf(k) === g)); if (!keys.length) continue;
+    html += `<div class="grp ${col[g] ? "cl" : ""}" data-g="${g}">${ICO.chev}<span>${esc(T(title))}</span></div>`;
+    if (col[g]) continue;
+    html += keys.map(k => {
+      const i = symInfo(k), idx = S.watch.indexOf(k);
+      return `<div class="row" data-k="${esc(k)}">${symIcon(k)}
+        <div class="nm"><b>${esc(i.show)}</b><small>${esc(i.desc || SRC_TAG[i.src] || i.src)}${i.src === "CT" && !CT.configured() ? " · " + esc(T("Не настроен")) : ""}</small></div>
+        ${wEdit ? `<span class="dr" data-up="${idx}">▲</span><span class="dr" data-dn="${idx}">▼</span><button class="x" data-rm="${esc(k)}">✕</button>` : `<div class="pr" id="q_${cssId(k)}"></div>`}</div>`;
+    }).join("");
+  }
+  L.innerHTML = html + `<div style="height:16px"></div>`;
   S.watch.forEach(paintRow);
+  const px = $("#promoX", L); if (px) px.onclick = e => { e.stopPropagation(); LS.set("promoOff", Date.now() + 3 * 86400000); renderWatch(); };
+  $$(".grp", L).forEach(e => e.onclick = () => { const c = LS.get("wcol", {}); c[e.dataset.g] = !c[e.dataset.g]; LS.set("wcol", c); renderWatch(); });
   $$(".row", L).forEach(e => e.onclick = ev => {
     const t = ev.target;
     if (t.dataset.rm) { S.watch = S.watch.filter(x => x !== t.dataset.rm); save("watch"); syncTickers(); renderWatch(); return; }
     if (t.dataset.up || t.dataset.dn) {
-      const i = +(t.dataset.up || t.dataset.dn), j = t.dataset.up ? i - 1 : i + 1;
-      if (j < 0 || j >= S.watch.length) return;
-      [S.watch[i], S.watch[j]] = [S.watch[j], S.watch[i]]; save("watch"); renderWatch(); return;
+      const i = +(t.dataset.up || t.dataset.dn), g = groupOf(S.watch[i]);
+      const same = S.watch.map((k, j) => [k, j]).filter(([k]) => groupOf(k) === g).map(([, j]) => j), p = same.indexOf(i), j = same[t.dataset.up ? p - 1 : p + 1];
+      if (j == null) return;
+      [S.watch[i], S.watch[j]] = [S.watch[j], S.watch[i]]; LS.set("wsort", "manual"); save("watch"); renderWatch(); return;
     }
     if (!wEdit) openSym(e.dataset.k);
   });
@@ -893,8 +1176,100 @@ function paintRow(k) {
   const e = document.getElementById("q_" + cssId(k)); if (!e) return;
   const q = Q[k]; if (!q) { e.innerHTML = `<b style="color:var(--mu)">—</b>`; return; }
   const d = q.d != null ? q.d : (S.dig[k] || 2);
-  const c = q.chg == null ? "bgn" : q.chg >= 0 ? "bgu" : "bgd";
-  e.innerHTML = `<b>${fmt(q.last, d)}</b><span class="${c}">${q.chg == null ? "—" : (q.chg >= 0 ? "+" : "") + q.chg.toFixed(2) + "%"}</span>`;
+  if (q.chg == null) { e.innerHTML = `<b>${nf(q.last, d)}</b><span style="color:var(--mu)">—</span>`; return; }
+  const abs = q.last - q.last / (1 + q.chg / 100), s = q.chg >= 0 ? "+" : "−", cls = q.chg >= 0 ? "up" : "dn";
+  e.innerHTML = `<b>${nf(q.last, d)}</b><span class="${cls}">${s}${nf(Math.abs(abs), d)}&nbsp; ${s}${nf(Math.abs(q.chg), 2)}%</span>`;
+}
+function watchMenu(anchor) {
+  popMenu(anchor, [
+    ["Изменить", ICO.pen, () => { wEdit = !wEdit; renderWatch(); }],
+    ["Сортировать по", ICO.sort, sortSheet],
+    ["Оповещение для списка", ICO.bell, () => go("pgAlerts")],
+    ["Добавить инструмент", ICO.plus, () => searchSheet("add")]
+  ]);
+}
+function sortSheet() {
+  const m = LS.get("wsort", "manual");
+  const b = sheet(T("Сортировать по"), [["manual", "Вручную"], ["name", "Названию"], ["chgD", "Изменению: сначала рост"], ["chgA", "Изменению: сначала падение"], ["price", "Цене"]]
+    .map(([k, n]) => `<button class="opt ${k === m ? "on" : ""}" data-s="${k}">${esc(T(n))}${k === m ? '<span class="r">✓</span>' : ""}</button>`).join(""));
+  $$("[data-s]", b).forEach(e => e.onclick = () => { LS.set("wsort", e.dataset.s); closeSheet(); renderWatch(); });
+}
+
+/* ---- меню (всё для теханализа и настройки) ---- */
+const MI = {
+  ind: '<svg viewBox="0 0 24 24"><path d="M4 20h16"/><path d="M6 16v-3M10 16V9M14 16v-5M18 16V6"/><path d="m5 10 5-4 4 3 5-5"/></svg>',
+  draw: '<svg viewBox="0 0 24 24"><path d="M4 20 20 4"/><circle cx="4.5" cy="19.5" r="2"/><circle cx="19.5" cy="4.5" r="2"/></svg>',
+  alert: '<svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="7"/><path d="M12 9v4l2 2M5 4 2 7M19 4l3 3"/></svg>',
+  type: '<svg viewBox="0 0 24 24"><path d="M8 3v3M8 17v4M16 6v3M16 15v3"/><rect x="6" y="6" width="4" height="11" rx="1"/><rect x="14" y="9" width="4" height="6" rx="1"/></svg>',
+  theme: '<svg viewBox="0 0 24 24"><path d="M12 3a9 9 0 1 0 9 9 7 7 0 0 1-9-9z"/></svg>',
+  lang: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>',
+  trade: '<svg viewBox="0 0 24 24"><path d="m4 15 5-5 4 4 7-7"/><path d="M15 7h5v5"/></svg>',
+  site: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><path d="M8 21h8M12 17v4"/></svg>',
+  tg: '<svg viewBox="0 0 24 24"><path d="m21 4-18 7 6 2 2 6 3-4 5 4z"/><path d="m9 13 8-6"/></svg>',
+  list: '<svg viewBox="0 0 24 24"><path d="M5 4h14v16l-7-4-7 4z"/></svg>'
+};
+let installEvt = null;
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; });
+function renderSettings() {
+  const c = CT.cfg(), L = $("#sList");
+  const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  const np = "Notification" in window ? Notification.permission : "denied";
+  L.innerHTML = `
+  <div class="mgrid c3" style="margin-top:6px">
+    <button class="o" data-m="site">${MI.site}${esc(T("Fazo для ПК"))}</button><button class="o" data-m="theme">${MI.theme}${esc(T("Тема"))}</button><button class="o" data-m="lang">${MI.lang}${LANG === "ru" ? "Русский" : "English"}</button></div>
+  <div class="mgrid" style="margin-top:12px"><button data-m="trade" style="grid-column:span 2;border:1px solid transparent;background:linear-gradient(var(--sh),var(--sh)) padding-box,linear-gradient(90deg,#f7525f,#2962ff) border-box">${MI.trade}${esc(T("Торгуйте со своим брокером"))}</button></div>
+  <div class="sec">${esc(T("ИНСТРУМЕНТЫ"))}</div>
+  <div class="mgrid"><button data-m="ind">${MI.ind}${esc(T("Индикаторы"))}</button><button data-m="draw">${MI.draw}${esc(T("Объекты рисования"))}</button>
+    <button data-m="alert">${MI.alert}${esc(T("Оповещения"))}</button><button data-m="type">${MI.type}${esc(T("Тип графика"))}</button></div>
+  <div class="sec">${esc(T("Подключение cTrader"))}</div>
+  <div class="card">
+    <label>${esc(T("Сервер"))}</label><div class="seg" id="ctLive"><button data-v="0" class="${!c.live ? "on" : ""}">${esc(T("Демо"))}</button><button data-v="1" class="${c.live ? "on" : ""}">${esc(T("Реальный"))}</button></div>
+    <label>Client ID</label><input id="ctCid" value="${esc(c.cid || "")}" autocomplete="off" spellcheck="false">
+    <label>Client Secret</label><input id="ctSec" type="password" value="${c.csec ? "•••" : ""}" autocomplete="off">
+    <label>Access token</label><input id="ctAt" type="password" value="${c.at ? "•••" : ""}" autocomplete="off">
+    <label>Refresh token</label><input id="ctRt" type="password" value="${c.rt ? "•••" : ""}" autocomplete="off">
+    <div class="btns"><button class="pri" id="ctGo">${esc(T("Подключить"))}</button>${c.cid ? `<button id="ctOff">${esc(T(c.off ? "Подключить" : "Отключить"))}</button>` : ""}</div>
+    <div class="st ${CT.stCls || ""}" id="ctSt">${esc(CT.status || (CT.configured() ? "" : T("Не настроен")))}</div>
+    <div class="note">${esc(T("Форекс, металлы и индексы идут через cTrader. Введите данные своего приложения Open API (openapi.ctrader.com → Applications) и токены. Данные хранятся только на этом телефоне."))}</div>
+  </div>
+  <div class="sec">${esc(T("Уведомления"))}</div>
+  <div class="card"><div class="btns" style="margin-top:0"><button id="nBtn" ${np !== "default" ? "disabled" : ""}>${esc(np === "granted" ? T("Уведомления разрешены") : np === "denied" ? T("Уведомления запрещены в настройках браузера") : T("Разрешить уведомления"))}</button></div></div>
+  <div class="sec">${esc(T("Установка"))}</div>
+  <div class="card">${standalone ? esc(T("Приложение уже установлено")) : `${installEvt ? `<div class="btns" style="margin-top:0"><button class="pri" id="inst">${esc(T("Установить приложение"))}</button></div>` : ""}
+    <div class="note">${esc(T("На Android: меню Chrome ⋮ → «Установить приложение»."))}<br>${esc(T("На iPhone: Safari → «Поделиться» → «На экран Домой»."))}</div>`}</div>
+  <div class="sec">${esc(T("О программе"))}</div>
+  <a class="mlink" href="${SITE}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${MI.site}<span>${esc(T("Сайт Fazo"))}</span><span class="r">fazo-terminal.pages.dev</span></a>
+  <a class="mlink" href="https://t.me/criptosignals_tj" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${MI.tg}<span>Telegram</span><span class="r">@criptosignals_tj</span></a>
+  <a class="mlink" href="https://t.me/drolimjon" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${MI.tg}<span>${esc(T("Поддержка"))}</span><span class="r">@drolimjon</span></a>
+  <button class="mlink" id="rst" style="color:var(--dn)">${MI.list}<span>${esc(T("Сбросить настройки"))}</span><span class="r">Fazo Mobile ${VER}</span></button>
+  <div style="height:24px"></div>`;
+  $$("[data-m]", L).forEach(e => e.onclick = () => {
+    const m = e.dataset.m;
+    if (m === "site") window.open(SITE, "_blank", "noopener");
+    if (m === "theme") themeSheet();
+    if (m === "lang") { LANG = LANG === "ru" ? "en" : "ru"; LS.set("lang", LANG); applyLang(); renderSettings(); legend(null); }
+    if (m === "trade") go("pgTrade");
+    if (m === "ind") { go("pgChart"); indSheet(); }
+    if (m === "draw") { go("pgChart"); DR.menu(); }
+    if (m === "alert") go("pgAlerts");
+    if (m === "type") { go("pgChart"); typeSheet(); }
+  });
+  let live = !!c.live;
+  $$("#ctLive button", L).forEach(e => e.onclick = () => { live = e.dataset.v === "1"; $$("#ctLive button", L).forEach(x => x.classList.toggle("on", x === e)); });
+  $("#ctGo", L).onclick = async () => {
+    const n = CT.cfg(), v = id => $(id, L).value.trim();
+    n.cid = v("#ctCid");
+    [["csec", "#ctSec"], ["at", "#ctAt"], ["rt", "#ctRt"]].forEach(([k, id]) => { const x = v(id); if (x && x !== "•••") { n[k] = x; if (k === "at") n.exp = Date.now() / 1000 + 29 * 86400; } if (!x) delete n[k]; });
+    if (n.live !== live) { n.live = live; delete n.acc; }
+    delete n.off;
+    CT.save(n); CT.reset();
+    try { await CT.ready(); syncTickers(); if (splitKey(S.sym)[0] === "CT") loadChart(); } catch (e) {}
+  };
+  const off = $("#ctOff", L);
+  if (off) off.onclick = () => { const n = CT.cfg(); n.off = !n.off; CT.save(n); CT.reset(); if (!n.off) CT.ready().then(syncTickers).catch(() => {}); else syncTickers(); renderSettings(); };
+  const nb = $("#nBtn", L); if (nb) nb.onclick = () => Notification.requestPermission().then(renderSettings);
+  const ib = $("#inst", L); if (ib) ib.onclick = () => { installEvt.prompt(); installEvt.userChoice.finally(() => { installEvt = null; renderSettings(); }); };
+  $("#rst", L).onclick = () => { if (!confirm(T("Сбросить все настройки этого телефона?"))) return; Object.keys(localStorage).filter(k => k.startsWith("fzm_")).forEach(k => localStorage.removeItem(k)); location.reload(); };
 }
 
 /* ---- алерты ---- */
@@ -930,61 +1305,13 @@ function renderAlerts() {
   $$(".row", L).forEach(e => e.onclick = () => openSym(S.alerts[+e.dataset.i].sym));
 }
 
-/* ---- настройки ---- */
-let installEvt = null;
-window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; });
-function renderSettings() {
-  const c = CT.cfg(), L = $("#sList");
-  const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
-  const np = "Notification" in window ? Notification.permission : "denied";
-  L.innerHTML = `
-  <div class="sec">${esc(T("Язык"))}</div>
-  <div class="card"><div class="seg" id="lang"><button data-l="ru" class="${LANG === "ru" ? "on" : ""}">Русский</button><button data-l="en" class="${LANG === "en" ? "on" : ""}">English</button></div></div>
-  <div class="sec">${esc(T("Подключение cTrader"))}</div>
-  <div class="card">
-    <label>${esc(T("Сервер"))}</label><div class="seg" id="ctLive"><button data-v="0" class="${!c.live ? "on" : ""}">${esc(T("Демо"))}</button><button data-v="1" class="${c.live ? "on" : ""}">${esc(T("Реальный"))}</button></div>
-    <label>Client ID</label><input id="ctCid" value="${esc(c.cid || "")}" autocomplete="off" spellcheck="false">
-    <label>Client Secret</label><input id="ctSec" type="password" value="${c.csec ? "•••" : ""}" autocomplete="off">
-    <label>Access token</label><input id="ctAt" type="password" value="${c.at ? "•••" : ""}" autocomplete="off">
-    <label>Refresh token</label><input id="ctRt" type="password" value="${c.rt ? "•••" : ""}" autocomplete="off">
-    <div class="btns"><button class="pri" id="ctGo">${esc(T("Подключить"))}</button>${c.cid ? `<button id="ctOff">${esc(T(c.off ? "Подключить" : "Отключить"))}</button>` : ""}</div>
-    <div class="st ${CT.stCls || ""}" id="ctSt">${esc(CT.status || (CT.configured() ? "" : T("Не настроен")))}</div>
-    <div class="note">${esc(T("Форекс, металлы и индексы идут через cTrader. Введите данные своего приложения Open API (openapi.ctrader.com → Applications) и токены. Данные хранятся только на этом телефоне."))}</div>
-  </div>
-  <div class="sec">${esc(T("Уведомления"))}</div>
-  <div class="card"><div class="btns" style="margin-top:0"><button id="nBtn" ${np !== "default" ? "disabled" : ""}>${esc(np === "granted" ? T("Уведомления разрешены") : np === "denied" ? T("Уведомления запрещены в настройках браузера") : T("Разрешить уведомления"))}</button></div></div>
-  <div class="sec">${esc(T("Установка"))}</div>
-  <div class="card">${standalone ? esc(T("Приложение уже установлено")) : `${installEvt ? `<div class="btns" style="margin-top:0"><button class="pri" id="inst">${esc(T("Установить приложение"))}</button></div>` : ""}
-    <div class="note">${esc(T("На Android: меню Chrome ⋮ → «Установить приложение»."))}<br>${esc(T("На iPhone: Safari → «Поделиться» → «На экран Домой»."))}</div>`}</div>
-  <div class="sec">${esc(T("Данные"))}</div>
-  <div class="card"><div class="btns" style="margin-top:0"><button id="rst" style="color:var(--dn)">${esc(T("Сбросить настройки"))}</button></div></div>
-  <div class="sec">${esc(T("О программе"))}</div>
-  <div class="card">Fazo Mobile · ${esc(T("Версия"))} ${VER}<div class="note">Telegram: <a href="https://t.me/drolimjon" target="_blank" rel="noopener">@drolimjon</a> · <a href="https://t.me/criptosignals_tj" target="_blank" rel="noopener">t.me/criptosignals_tj</a></div></div>
-  <div style="height:20px"></div>`;
-  $$("#lang button", L).forEach(e => e.onclick = () => { LANG = e.dataset.l; LS.set("lang", LANG); applyLang(); renderSettings(); legend(null); });
-  let live = !!c.live;
-  $$("#ctLive button", L).forEach(e => e.onclick = () => { live = e.dataset.v === "1"; $$("#ctLive button", L).forEach(x => x.classList.toggle("on", x === e)); });
-  $("#ctGo", L).onclick = async () => {
-    const n = CT.cfg(), v = id => $(id, L).value.trim();
-    n.cid = v("#ctCid");
-    [["csec", "#ctSec"], ["at", "#ctAt"], ["rt", "#ctRt"]].forEach(([k, id]) => { const x = v(id); if (x && x !== "•••") { n[k] = x; if (k === "at") n.exp = Date.now() / 1000 + 29 * 86400; } if (!x) delete n[k]; });
-    if (n.live !== live) { n.live = live; delete n.acc; }
-    delete n.off;
-    CT.save(n); CT.reset();
-    try { await CT.ready(); syncTickers(); if (splitKey(S.sym)[0] === "CT") loadChart(); } catch (e) {}
-  };
-  const off = $("#ctOff", L);
-  if (off) off.onclick = () => { const n = CT.cfg(); n.off = !n.off; CT.save(n); CT.reset(); if (!n.off) CT.ready().then(syncTickers).catch(() => {}); else syncTickers(); renderSettings(); };
-  const nb = $("#nBtn", L); if (nb) nb.onclick = () => Notification.requestPermission().then(renderSettings);
-  const ib = $("#inst", L); if (ib) ib.onclick = () => { installEvt.prompt(); installEvt.userChoice.finally(() => { installEvt = null; renderSettings(); }); };
-  $("#rst", L).onclick = () => { if (!confirm(T("Сбросить все настройки этого телефона?"))) return; Object.keys(localStorage).filter(k => k.startsWith("fzm_")).forEach(k => localStorage.removeItem(k)); location.reload(); };
-}
 CT.onStatus = () => { const e = $("#ctSt"); if (e) { e.textContent = CT.status; e.className = "st " + (CT.stCls || ""); } };
 
 /* ================= запуск ================= */
 function boot() {
   applyLang();
   initChart();
+  applyTheme();
   $("#symBtn").onclick = () => searchSheet("open");
   $("#tfBtn").onclick = tfSheet;
   $("#typeBtn").onclick = typeSheet;
@@ -992,7 +1319,10 @@ function boot() {
   $("#drawBtn").onclick = () => DR.menu();
   $("#alertBtn").onclick = () => alertSheet();
   $("#wAdd").onclick = () => searchSheet("add");
-  $("#wEdit").onclick = () => { wEdit = !wEdit; renderWatch(); };
+  $("#wListBtn").onclick = e => { e.stopPropagation(); if (wEdit) { wEdit = false; renderWatch(); } else watchMenu(e.currentTarget); };
+  $("#wDots").onclick = e => { e.stopPropagation(); watchMenu(e.currentTarget); };
+  $("#wHam").onclick = () => go("pgSet");
+  $("#wSearch").onclick = () => searchSheet("open");
   $("#aAdd").onclick = () => alertSheet();
   $("#ov").onclick = closeSheet; $("#shX").onclick = closeSheet;
   $$("#nav button").forEach(b => b.onclick = () => go(b.dataset.p));
@@ -1008,6 +1338,7 @@ function boot() {
   });
   if (CT.configured()) CT.ready().catch(() => {});
   loadChart(); syncTickers();
+  go(LS.get("page", "pgWatch"));
   setTimeout(() => $("#splash").classList.add("off"), 1900);
   setTimeout(() => $("#splash").remove(), 2400);
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
