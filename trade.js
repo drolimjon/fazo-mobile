@@ -3,6 +3,8 @@
    зашифрованные PIN-кодом (PBKDF2 + AES-GCM), и расшифровываются лишь в памяти на время сессии. */
 "use strict";
 Object.assign(EN, {
+  "Демо-сервер Binance не принимает этот запрос с телефона": "The Binance demo server does not accept this request from a phone",
+  "Демо-счёт Binance с телефона показывает баланс и позиции, но ордера и список ордеров Binance принимает только со своего сайта. Для тренировки с ордерами используйте демо-счёт Bybit: там с телефона работает всё.": "From a phone the Binance demo account shows balance and positions, but Binance accepts orders and the order list only from its own site. To practice with orders, use a Bybit demo account: everything works there from a phone.",
   "Сканировать QR-код ключа": "Scan the key QR code", "Ключ и секрет считаны": "Key and secret scanned", "Ключ считан. Введите секрет вручную или отсканируйте его QR-код": "Key scanned. Enter the secret manually or scan its QR code",
   "В QR-коде нет ключа": "No key in the QR code", "Наведите камеру на QR-код": "Point the camera at the QR code", "Нет доступа к камере": "No camera access",
   "Торговля": "Trade", "Счёт": "Account", "Баланс": "Equity", "Доступно": "Available", "Нереализ. P&L": "Unrealized P&L",
@@ -129,8 +131,8 @@ const TR = (() => {
     const q = new URLSearchParams(Object.assign({}, p, {recvWindow: 6000, timestamp: Date.now() + off.BINANCEF})).toString();
     const qs = path + "?" + q + "&signature=" + await hmac(k.s, q), o = {method, headers: {"X-MBX-APIKEY": k.k}};
     let r;
-    if (k.demo) r = await fetch("/bx/demo" + qs, o);                           // демо-сервер Binance не пускает браузер — через наш посредник
-    else { try { r = await fetch(EXS.BINANCEF.live + qs, o); } catch (x) { r = await fetch("/bx/live" + qs, o); } }
+    try { r = await fetch(base("BINANCEF") + qs, o); }
+    catch (x) { throw new Error(k.demo ? T("Демо-сервер Binance не принимает этот запрос с телефона") : (x.message || "Network error")); }
     let j = null; try { j = await r.json(); } catch (x) {}
     if (!r.ok || (j && j.code && j.code < 0)) {
       if (j && j.code === -1021) off.BINANCEF = null;
@@ -317,6 +319,7 @@ const TR = (() => {
         <div style="flex:1"><div class="note" style="margin:0">${esc(T("Доступно"))}</div><b style="font-size:16px">${money(a.avail)}</b></div>
         <div style="flex:1"><div class="note" style="margin:0">${esc(T("Нереализ. P&L"))}</div><b style="font-size:16px" class="${pcls(a.upnl)}">${money(a.upnl)}</b></div></div>
       ${d.err ? `<div class="st er">${esc(d.err)}</div>` : ""}
+      ${ex === "BINANCEF" && keys[ex].demo ? `<div class="note">${esc(T("Демо-счёт Binance с телефона показывает баланс и позиции, но ордера и список ордеров Binance принимает только со своего сайта. Для тренировки с ордерами используйте демо-счёт Bybit: там с телефона работает всё."))}</div>` : ""}
       <div class="btns"><button id="kLock">${esc(T("Заблокировать"))}</button><button id="kDel" style="color:var(--dn)">${esc(T("Удалить ключ"))}</button></div></div>
     <div class="sec">${esc(T("Позиции"))}</div>
     ${(d.pos || []).length ? d.pos.map((p, i) => `<div class="row" data-p="${i}" style="height:auto;padding:10px 14px">
