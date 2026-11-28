@@ -1,7 +1,7 @@
 /* Fazo Mobile — веб-версия терминала для телефона (PWA).
    Работает без ПК: котировки берёт сам браузер у Binance, Binance Futures, Bybit и cTrader (Open API, JSON через WebSocket). */
 "use strict";
-const VER = "1.4.4";
+const VER = "1.4.5";
 const LWC = window.LightweightCharts;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -14,7 +14,10 @@ const LS = {
 
 /* ================= язык ================= */
 const EN = {
-  "Всё для теханализа": "Everything for technical analysis", "Настройки графика": "Chart settings", "Снимок графика": "Chart snapshot", "Полный экран": "Fullscreen",
+  "Приложение установлено": "The app is installed", "Откройте эту страницу в Safari": "Open this page in Safari", "Нажмите «Поделиться»": "Tap Share",
+  "Выберите «На экран Домой»": "Choose Add to Home Screen", "Откройте эту страницу в Chrome": "Open this page in Chrome", "Откройте эту страницу на телефоне": "Open this page on your phone",
+  "Нажмите меню ⋮ справа вверху": "Tap the ⋮ menu at the top right", "Выберите «Установить приложение» или «Добавить на главный экран»": "Choose Install app or Add to Home screen",
+  "Графики, котировки, рисование, алерты и торговля — на главном экране телефона.": "Charts, quotes, drawing, alerts and trading — on your phone's home screen.",   "Всё для теханализа": "Everything for technical analysis", "Настройки графика": "Chart settings", "Снимок графика": "Chart snapshot", "Полный экран": "Fullscreen",
   "Свечи": "Candles", "Рост": "Up", "Падение": "Down", "Внешний вид": "Appearance", "Сетка": "Grid", "Объём": "Volume", "Отсчёт до закрытия свечи": "Countdown to bar close",
   "Логарифмическая шкала": "Logarithmic scale", "Кнопки «Продать / Купить» на графике": "Sell / Buy buttons on chart", "Логотип Fazo на графике": "Fazo logo on chart",
   "Поведение": "Behavior", "Скрыть панель вкладок": "Hide tab bar", "Скрыть панель вкладок, когда график в горизонтальном режиме.": "Hide the tab bar when the chart is in landscape.",
@@ -1260,7 +1263,23 @@ const MI = {
   clock: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
 };
 let installEvt = null;
-window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; });
+window.addEventListener("beforeinstallprompt", e => { e.preventDefault(); installEvt = e; if ($("#instSheet")) installSheet(); });
+window.addEventListener("appinstalled", () => { installEvt = null; if ($("#instSheet")) installSheet(); toast(T("Приложение установлено")); });
+/* окно установки — открывается по ссылке с сайта Fazo (…/?install=1) */
+function installSheet() {
+  const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  const ios = /iphone|ipad|ipod/i.test(navigator.userAgent), android = /android/i.test(navigator.userAgent);
+  const share = '<svg viewBox="0 0 24 24" style="width:20px;height:20px;vertical-align:-4px;fill:none;stroke:currentColor;stroke-width:1.8"><path d="M12 3v12M8 7l4-4 4 4"/><path d="M5 11v9h14v-9"/></svg>';
+  let body;
+  if (standalone) body = `<p style="text-align:center;font-size:16px">${esc(T("Приложение уже установлено"))} ✓</p>`;
+  else if (installEvt) body = `<div class="btns" style="margin:0"><button class="pri" id="instGo" style="height:54px;font-size:17px">${esc(T("Установить приложение"))}</button></div>`;
+  else if (ios) body = `<ol style="line-height:2;font-size:16px;padding-left:22px;margin:0"><li>${esc(T("Откройте эту страницу в Safari"))}</li><li>${esc(T("Нажмите «Поделиться»"))} ${share}</li><li>${esc(T("Выберите «На экран Домой»"))}</li></ol>`;
+  else body = `<ol style="line-height:2;font-size:16px;padding-left:22px;margin:0"><li>${esc(T(android ? "Откройте эту страницу в Chrome" : "Откройте эту страницу на телефоне"))}</li><li>${esc(T("Нажмите меню ⋮ справа вверху"))}</li><li>${esc(T("Выберите «Установить приложение» или «Добавить на главный экран»"))}</li></ol>`;
+  const b = sheet(T("Установка"), `<div id="instSheet" class="card" style="text-align:center"><img src="icons/icon-192.png" alt="" style="width:76px;height:76px;border-radius:18px">
+    <h3 style="margin:10px 0 4px;font-size:20px">Fazo</h3><p style="color:var(--mu);margin:0 0 16px">${esc(T("Графики, котировки, рисование, алерты и торговля — на главном экране телефона."))}</p>
+    <div style="text-align:left">${body}</div></div>`);
+  const g = $("#instGo", b); if (g) g.onclick = () => { const ev = installEvt; ev.prompt(); ev.userChoice.then(c => { if (c.outcome === "accepted") { installEvt = null; closeSheet(); } }).catch(() => {}); };
+}
 function renderSettings() {
   const c = CT.cfg(), L = $("#sList");
   const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
@@ -1510,6 +1529,7 @@ function boot() {
   if (CT.configured()) CT.ready().catch(() => {});
   loadChart(); syncTickers();
   go(LS.get("page", "pgWatch"));
+  if (/[?&]install=1/.test(location.search)) { history.replaceState(null, "", location.pathname); setTimeout(installSheet, 2100); }
   setTimeout(() => $("#splash").classList.add("off"), 1900);
   setTimeout(() => $("#splash").remove(), 2400);
   if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
