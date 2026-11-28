@@ -3,6 +3,8 @@
    зашифрованные PIN-кодом (PBKDF2 + AES-GCM), и расшифровываются лишь в памяти на время сессии. */
 "use strict";
 Object.assign(EN, {
+  "Сканировать QR-код ключа": "Scan the key QR code", "Ключ и секрет считаны": "Key and secret scanned", "Ключ считан. Введите секрет вручную или отсканируйте его QR-код": "Key scanned. Enter the secret manually or scan its QR code",
+  "В QR-коде нет ключа": "No key in the QR code", "Наведите камеру на QR-код": "Point the camera at the QR code", "Нет доступа к камере": "No camera access",
   "Торговля": "Trade", "Счёт": "Account", "Баланс": "Equity", "Доступно": "Available", "Нереализ. P&L": "Unrealized P&L",
   "Позиции": "Positions", "Нет открытых позиций": "No open positions", "Ордера": "Orders", "Нет активных ордеров": "No open orders",
   "Подключите API-ключ биржи": "Connect the exchange API key", "API-ключ": "API key", "Секретный ключ": "Secret key",
@@ -27,12 +29,57 @@ Object.assign(EN, {
     "Binance Spot does not accept keyed requests from a browser, so Binance trading goes through futures."
 });
 
+/* ---------- сканер QR-кода (ключи API бирж) ---------- */
+function parseKeyQR(txt) {
+  txt = String(txt || "").trim();
+  try {
+    const j = JSON.parse(txt), f = (...ks) => { for (const k of ks) for (const kk of Object.keys(j)) if (kk.toLowerCase() === k) return String(j[kk]); return ""; };
+    const k = f("apikey", "api_key", "key", "apikeyid"), s = f("secretkey", "secret_key", "secret", "apisecret", "api_secret");
+    if (k || s) return {k, s};
+  } catch (e) {}
+  const kv = {}; txt.replace(/([A-Za-z_]+)\s*[:=]\s*([A-Za-z0-9+/=_-]{16,})/g, (m, a, b) => { kv[a.toLowerCase()] = b; });
+  const k2 = kv.apikey || kv.api_key || kv.key, s2 = kv.secretkey || kv.secret_key || kv.secret || kv.apisecret;
+  if (k2 || s2) return {k: k2 || "", s: s2 || ""};
+  const toks = txt.match(/[A-Za-z0-9+/=_-]{16,}/g) || [];
+  return {k: toks[0] || "", s: toks[1] || ""};
+}
+async function scanQR(cb) {
+  let stream = null, stop = false, done = false;
+  const b = sheet(T("Сканировать QR-код ключа"), `<div style="position:relative;margin:0 16px;border-radius:16px;overflow:hidden;background:#000;aspect-ratio:1">
+      <video id="qrV" playsinline muted style="width:100%;height:100%;object-fit:cover"></video>
+      <div style="position:absolute;inset:18%;border:3px solid #fff;border-radius:18px;box-shadow:0 0 0 999px rgba(0,0,0,.35)"></div></div>
+    <div class="empty" id="qrS" style="padding:14px">${esc(T("Наведите камеру на QR-код"))}</div>`, () => { stop = true; if (stream) stream.getTracks().forEach(x => x.stop()); });
+  try { stream = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment"}, audio: false}); }
+  catch (e) { $("#qrS", b).textContent = T("Нет доступа к камере") + ": " + (e.message || e.name); return; }
+  const v = $("#qrV", b); v.srcObject = stream; await v.play().catch(() => {});
+  let det = null;
+  if ("BarcodeDetector" in window) { try { det = new BarcodeDetector({formats: ["qr_code"]}); } catch (e) {} }
+  if (!det && !window.jsQR) await new Promise(r => { const s = document.createElement("script"); s.src = "jsqr.js"; s.onload = r; s.onerror = r; document.head.appendChild(s); });
+  const c = document.createElement("canvas"), x = c.getContext("2d", {willReadFrequently: true});
+  const found = txt => { if (done) return; done = true; try { navigator.vibrate && navigator.vibrate(60); } catch (e) {} closeSheet(); cb(txt); };
+  const tick = async () => {
+    if (stop || done) return;
+    if (v.readyState >= 2) {
+      try {
+        if (det) { const r = await det.detect(v); if (r.length) return found(r[0].rawValue); }
+        else if (window.jsQR) {
+          const w = Math.min(640, v.videoWidth), h = Math.round(v.videoHeight * w / v.videoWidth); c.width = w; c.height = h; x.drawImage(v, 0, 0, w, h);
+          const r = jsQR(x.getImageData(0, 0, w, h).data, w, h, {inversionAttempts: "dontInvert"}); if (r && r.data) return found(r.data);
+        }
+      } catch (e) {}
+    }
+    setTimeout(tick, 150);
+  };
+  tick();
+}
+
 const TR = (() => {
   const EXS = {
     BINANCEF: {label: "Binance Futures", live: "https://fapi.binance.com", demo: "https://demo-fapi.binance.com"},
     BYBIT: {label: "Bybit", live: "https://api.bybit.com", demo: "https://api-demo.bybit.com"}
   };
   let ex = LS.get("tex", "BINANCEF");
+  const chartEx = () => { const [e, sym] = splitKey(S.sym); return [e === "BINANCE" ? "BINANCEF" : e, sym]; };
   const keys = {};                       // расшифрованные ключи — только в памяти
   const data = {};                       // ex -> {acc, pos, ord, err, t}
   const off = {};                        // ex -> поправка часов (мс)
@@ -80,7 +127,10 @@ const TR = (() => {
     await sync("BINANCEF");
     const k = keys.BINANCEF;
     const q = new URLSearchParams(Object.assign({}, p, {recvWindow: 6000, timestamp: Date.now() + off.BINANCEF})).toString();
-    const r = await fetch(base("BINANCEF") + path + "?" + q + "&signature=" + await hmac(k.s, q), {method, headers: {"X-MBX-APIKEY": k.k}});
+    const qs = path + "?" + q + "&signature=" + await hmac(k.s, q), o = {method, headers: {"X-MBX-APIKEY": k.k}};
+    let r;
+    if (k.demo) r = await fetch("/bx/demo" + qs, o);                           // демо-сервер Binance не пускает браузер — через наш посредник
+    else { try { r = await fetch(EXS.BINANCEF.live + qs, o); } catch (x) { r = await fetch("/bx/live" + qs, o); } }
     let j = null; try { j = await r.json(); } catch (x) {}
     if (!r.ok || (j && j.code && j.code < 0)) {
       if (j && j.code === -1021) off.BINANCEF = null;
@@ -195,11 +245,12 @@ const TR = (() => {
     if (!keys[e]) return;
     const d = data[e] = data[e] || {};
     try {
-      const [acc, pos, ord] = await Promise.all([API[e].account(), API[e].positions(), API[e].orders()]);
-      Object.assign(d, {acc, pos, ord, err: null, t: Date.now()});
+      const rs = await Promise.allSettled([API[e].account(), API[e].positions(), API[e].orders()]);
+      const val = i => rs[i].status === "fulfilled" ? rs[i].value : null, bad = rs.find(x => x.status === "rejected");
+      Object.assign(d, {acc: val(0) || d.acc, pos: val(1) || d.pos || [], ord: val(2) || d.ord || [], err: bad ? (bad.reason && bad.reason.message || String(bad.reason)) : null, t: Date.now()});
     } catch (x) { d.err = x.message || String(x); }
     if ($("#pgTrade").classList.contains("on") && e === ex) paint();
-    if (splitKey(S.sym)[0] === e) chartLines();
+    if (chartEx()[0] === e) chartLines();
   }
   function loop() {
     clearTimeout(timer);
@@ -219,6 +270,7 @@ const TR = (() => {
     if (!st) {
       L.innerHTML = `<div class="sec">${esc(T("Подключите API-ключ биржи"))} · ${EXS[ex].label}</div>
       <div class="card"><label>${esc(T("Счёт"))}</label><div class="seg" id="kDemo"><button data-v="0" class="on">${esc(T("Реальный счёт"))}</button><button data-v="1">${esc(T("Демо-счёт"))}</button></div>
+        <button class="opt" id="kQr" style="background:var(--tile);border-radius:12px;margin-top:12px;justify-content:center;gap:10px;font-weight:600"><svg viewBox="0 0 24 24" style="width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.6"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4"/><path d="M8 8h3v3H8zM13 13h3v3h-3zM13 8h3M8 13v3"/></svg>${esc(T("Сканировать QR-код ключа"))}</button>
         <label>${esc(T("API-ключ"))}</label><input id="kKey" autocomplete="off" spellcheck="false">
         <label>${esc(T("Секретный ключ"))}</label><input id="kSec" type="password" autocomplete="off">
         <label>${esc(T("PIN-код (минимум 4 цифры)"))}</label><input id="kPin" type="password" inputmode="numeric" autocomplete="new-password">
@@ -228,6 +280,11 @@ const TR = (() => {
         ${ex === "BINANCEF" ? `<div class="note">${esc(T("Binance Spot не принимает запросы с ключом из браузера, поэтому торговля на Binance — через фьючерсы."))}</div>` : ""}</div>`;
       let demo = false;
       $$("#kDemo button", L).forEach(b => b.onclick = () => { demo = b.dataset.v === "1"; $$("#kDemo button", L).forEach(x => x.classList.toggle("on", x === b)); });
+      $("#kQr", L).onclick = () => scanQR(txt => {
+        const r = parseKeyQR(txt);
+        if (r.k) $("#kKey", L).value = r.k; if (r.s) $("#kSec", L).value = r.s;
+        toast(r.k && r.s ? T("Ключ и секрет считаны") : r.k ? T("Ключ считан. Введите секрет вручную или отсканируйте его QR-код") : T("В QR-коде нет ключа"), 4000);
+      });
       $("#kSave", L).onclick = async () => {
         const k = $("#kKey", L).value.trim(), s = $("#kSec", L).value.trim(), p = $("#kPin", L).value, p2 = $("#kPin2", L).value;
         if (!k || !s) return toast(T("Заполните ключ и секрет"));
@@ -321,7 +378,7 @@ const TR = (() => {
   const roundTo = (v, st) => +(Math.floor(v / st + 1e-9) * st).toFixed(decs(st));
   const roundPx = (v, st) => +(Math.round(v / st) * st).toFixed(decs(st));
   async function ticket(side) {
-    const [e, sym] = splitKey(S.sym);
+    const [e, sym] = chartEx();
     if (!EXS[e]) return toast(T("Торговля доступна для Binance Futures и Bybit. Откройте инструмент с этих бирж."), 4000);
     if (!store()[e]) { toast(T("Сначала подключите API-ключ во вкладке «Торговля»"), 3500); ex = e; LS.set("tex", ex); go("pgTrade"); return; }
     try { await unlock(e); } catch (x) { return; }
@@ -394,7 +451,7 @@ const TR = (() => {
     const lg = $("#legend"); $("#tradeBtns").style.top = (lg.offsetTop + lg.offsetHeight + 6) + "px";
   }
   function chartBtns() {
-    const [e, sym] = splitKey(S.sym), on = !!EXS[e];
+    const [e, sym] = chartEx(), on = !!EXS[e];
     $("#tradeBtns").style.display = on && LS.get("tbtn", true) ? "" : "none";
     if (bookKey === S.sym) { placeBtns(); return; }
     if (book) { book.close(); book = null; }
@@ -414,7 +471,7 @@ const TR = (() => {
   function chartLines() {
     lines.forEach(l => { try { G.main && G.main.removePriceLine(l); } catch (x) {} });
     lines = [];
-    const [e, sym] = splitKey(S.sym), d = data[e];
+    const [e, sym] = chartEx(), d = data[e];
     if (!G.main || !d || !keys[e]) return;
     (d.pos || []).filter(p => p.sym === sym).forEach(p => {
       lines.push(G.main.createPriceLine({price: p.entry, color: p.side === "long" ? "#089981" : "#f23645", lineWidth: 2, lineStyle: 0, axisLabelVisible: true,

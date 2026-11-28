@@ -1,5 +1,5 @@
 /* Fazo Mobile — service worker: офлайн-оболочка приложения и уведомления алертов */
-const CACHE = "fazo-m-v10";
+const CACHE = "fazo-m-v11";
 const SHELL = ["./", "index.html", "app.js", "trade.js", "draw.js", "lightweight-charts.js", "manifest.webmanifest", "logo.png",
   "icons/icon-192.png", "icons/icon-512.png", "icons/maskable-512.png", "icons/icon-180.png", "icons/favicon.png"];
 

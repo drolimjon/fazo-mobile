@@ -1,7 +1,7 @@
 /* Fazo Mobile — веб-версия терминала для телефона (PWA).
    Работает без ПК: котировки берёт сам браузер у Binance, Binance Futures, Bybit и cTrader (Open API, JSON через WebSocket). */
 "use strict";
-const VER = "1.4.1";
+const VER = "1.4.2";
 const LWC = window.LightweightCharts;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
