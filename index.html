@@ -161,7 +161,7 @@ html.light .promo img{filter:invert(1)}
 .menu button svg{width:24px;height:24px}
 /* интервалы */
 .tfsec{padding:14px 16px 6px;color:var(--mu);font-size:13px;letter-spacing:.04em;text-transform:uppercase;font-weight:500;border-top:1px solid var(--bd)}
-.tfrow{display:flex;gap:10px;padding:4px 16px 14px;overflow-x:auto;scrollbar-width:none}
+.tfrow{display:flex;flex-wrap:wrap;gap:10px;padding:4px 16px 14px}
 .tfrow button{flex:none;width:64px;height:48px;border-radius:12px;background:var(--tile);font-size:16px;position:relative}
 .tfrow button.on{background:var(--sel);color:var(--selt)}
 .tfrow button .fv{position:absolute;right:5px;top:2px;font-size:10px;color:#f5c542}
@@ -175,7 +175,9 @@ html.light .promo img{filter:invert(1)}
 .mgrid button svg{width:26px;height:26px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;color:var(--tx)}
 .mlink{display:flex;align-items:center;gap:14px;width:100%;padding:0 16px;height:56px;font-size:16px;text-align:left;position:relative}
 .mlink::after{content:"";position:absolute;left:54px;right:0;bottom:0;height:1px;background:var(--bd)}
-.mlink .r{margin-left:auto;color:var(--mu);font-size:14px}
+.mlink .r{margin-left:auto;color:var(--mu);font-size:14px;text-align:right}
+.mlink svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.mlink>span:not(.r){white-space:nowrap}
 .thm{display:flex;justify-content:center;gap:40px;padding:10px 16px 20px}
 .thm button{display:flex;flex-direction:column;align-items:center;gap:12px;font-size:17px}
 .thm .ph{width:110px;height:230px;border-radius:18px;border:2px solid var(--bd);padding:40px 14px;display:flex;flex-direction:column;gap:10px}
@@ -200,6 +202,8 @@ html.light .promo img{filter:invert(1)}
 .sheet .sh h3{margin:0;font-size:22px;flex:1;font-weight:600}
 .sheet .sh .cl{width:34px;height:34px;border-radius:50%;background:var(--tile);font-size:15px}
 .sheet .sb{overflow:auto;-webkit-overflow-scrolling:touch;padding:0 0 14px;display:flex;flex-direction:column;min-height:0}
+.sheet .sb>*{flex-shrink:0}
+.sheet .sb>.scr{flex:1 1 auto;flex-shrink:1}
 .sheet .sb.dsb{overflow:hidden}
 .sheet .sb .scr{overflow:auto;flex:1;min-height:0}
 .grid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:0 16px}
@@ -273,6 +277,9 @@ html.light .promo img{filter:invert(1)}
 #app.full #nav{display:none}
 #app.full #legend{opacity:.9}
 @media (orientation:landscape) and (max-height:520px){
+  .sheet{max-height:94vh;left:max(0px,calc(50% - 360px));right:max(0px,calc(50% - 360px))}
+  .sheet .sh{padding:4px 16px 8px}
+  .sheet .grab{margin:6px auto 2px}
   #nav button{height:46px;flex-direction:row;gap:8px;font-size:14px}
   #nav button svg{width:22px;height:22px}
   #ctb{height:48px}

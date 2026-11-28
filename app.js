@@ -1,7 +1,7 @@
 /* Fazo Mobile — веб-версия терминала для телефона (PWA).
    Работает без ПК: котировки берёт сам браузер у Binance, Binance Futures, Bybit и cTrader (Open API, JSON через WebSocket). */
 "use strict";
-const VER = "1.4.0";
+const VER = "1.4.1";
 const LWC = window.LightweightCharts;
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -68,8 +68,8 @@ function applyLang() {
 }
 
 /* ================= утилиты ================= */
-const TFS = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "1d", "1w", "1M"];
-const TF_SEC = {"1m": 60, "3m": 180, "5m": 300, "15m": 900, "30m": 1800, "1h": 3600, "2h": 7200, "4h": 14400, "1d": 86400, "1w": 604800, "1M": 2592000};
+const TFS = ["1m", "2m", "3m", "4m", "5m", "10m", "15m", "20m", "30m", "1h", "2h", "3h", "4h", "6h", "8h", "12h", "1d", "1w", "1M"];
+const TF_SEC = {"1m": 60, "2m": 120, "3m": 180, "4m": 240, "5m": 300, "10m": 600, "15m": 900, "20m": 1200, "30m": 1800, "1h": 3600, "2h": 7200, "3h": 10800, "4h": 14400, "6h": 21600, "8h": 28800, "12h": 43200, "1d": 86400, "1w": 604800, "1M": 2592000};
 const TZ = (() => { const z = LS.get("tz", "local"); return z === "local" ? -new Date().getTimezoneOffset() * 60 : z === "utc" ? 0 : +z * 3600; })();            // график показывает местное время телефона
 const decOf = arr => {                                       // точность цены по строкам биржи
   let d = 0;
@@ -141,7 +141,7 @@ function binanceSrc(id, label, rest, alt, pfx, wsb) {
   };
 }
 
-const BY = {"1m": "1", "3m": "3", "5m": "5", "15m": "15", "30m": "30", "1h": "60", "2h": "120", "4h": "240", "1d": "D", "1w": "W", "1M": "M"};
+const BY = {"1m": "1", "3m": "3", "5m": "5", "15m": "15", "30m": "30", "1h": "60", "2h": "120", "4h": "240", "6h": "360", "12h": "720", "1d": "D", "1w": "W", "1M": "M"};
 function bybitSrc() {
   let list = null;
   const WS = "wss://stream.bybit.com/v5/public/linear", ping = {msg: JSON.stringify({op: "ping"}), ms: 20000};
@@ -187,9 +187,9 @@ function rank(list, q) {
 }
 
 /* ---------- cTrader Open API (JSON через WebSocket, напрямую из браузера) ---------- */
-const CT_PER = {"1m": 1, "3m": 3, "5m": 5, "15m": 7, "30m": 8, "1h": 9, "4h": 10, "1d": 12, "1w": 13, "1M": 14};
-const CT_SEC = {1: 60, 3: 180, 5: 300, 7: 900, 8: 1800, 9: 3600, 10: 14400, 12: 86400, 13: 604800, 14: 2592000};
-const CT_WIN = {1: 302400000, 3: 302400000, 5: 302400000, 7: 21168000000, 8: 21168000000, 9: 21168000000,
+const CT_PER = {"1m": 1, "2m": 2, "3m": 3, "4m": 4, "5m": 5, "10m": 6, "15m": 7, "30m": 8, "1h": 9, "4h": 10, "12h": 11, "1d": 12, "1w": 13, "1M": 14};
+const CT_SEC = {1: 60, 2: 120, 3: 180, 4: 240, 5: 300, 6: 600, 11: 43200, 7: 900, 8: 1800, 9: 3600, 10: 14400, 12: 86400, 13: 604800, 14: 2592000};
+const CT_WIN = {1: 302400000, 2: 302400000, 3: 302400000, 4: 302400000, 5: 302400000, 6: 21168000000, 11: 31622400000, 7: 21168000000, 8: 21168000000, 9: 21168000000,
   10: 31622400000, 12: 31622400000, 13: 158112000000, 14: 158112000000};
 class CTrader {
   constructor() {
@@ -371,7 +371,7 @@ class CTrader {
       un = this.listen(sid, px => {
         const L = last(); if (!L) return;
         const now = Date.now() / 1000;
-        if (sec <= 14400 && now >= L.time + sec) {
+        if (sec <= 43200 && now >= L.time + sec) {
           const t = Math.floor(now / sec) * sec;
           cb({time: t, open: px, high: px, low: px, close: px, volume: 1});
         } else cb({time: L.time, open: L.open, high: Math.max(L.high, px), low: Math.min(L.low, px), close: px, volume: L.volume + 1});
@@ -416,10 +416,11 @@ class CTrader {
 
 /* ---------- Yahoo Finance (через посредника /yf на нашем же сайте) ---------- */
 function yahooSrc() {
-  const YI = {"1m": ["1m", 1], "3m": ["1m", 3], "5m": ["5m", 1], "15m": ["15m", 1], "30m": ["30m", 1], "1h": ["60m", 1], "2h": ["60m", 2], "4h": ["60m", 4],
+  const YI = {"2m": ["2m", 1], "4m": ["2m", 2], "10m": ["5m", 2], "20m": ["5m", 4], "3h": ["60m", 3], "6h": ["60m", 6], "8h": ["60m", 8], "12h": ["60m", 12],
+    "1m": ["1m", 1], "3m": ["1m", 3], "5m": ["5m", 1], "15m": ["15m", 1], "30m": ["30m", 1], "1h": ["60m", 1], "2h": ["60m", 2], "4h": ["60m", 4],
     "1d": ["1d", 1], "1w": ["1wk", 1], "1M": ["1mo", 1]};
-  const MAXR = {"1m": 7 * 86400, "5m": 59 * 86400, "15m": 59 * 86400, "30m": 59 * 86400, "60m": 720 * 86400};
-  const BASE = {"1m": 60, "5m": 300, "15m": 900, "30m": 1800, "60m": 3600, "1d": 86400, "1wk": 604800, "1mo": 2592000};
+  const MAXR = {"1m": 7 * 86400, "2m": 59 * 86400, "5m": 59 * 86400, "15m": 59 * 86400, "30m": 59 * 86400, "60m": 720 * 86400};
+  const BASE = {"1m": 60, "2m": 120, "5m": 300, "15m": 900, "30m": 1800, "60m": 3600, "1d": 86400, "1wk": 604800, "1mo": 2592000};
   const POP = [["^GSPC", "S&P 500"], ["^NDX", "Nasdaq 100"], ["^DJI", "Dow Jones"], ["^IXIC", "Nasdaq Composite"], ["^RUT", "Russell 2000"], ["^VIX", "VIX"],
     ["^FTSE", "FTSE 100"], ["^GDAXI", "DAX"], ["^N225", "Nikkei 225"], ["^HSI", "Hang Seng"], ["GC=F", "Gold Futures"], ["SI=F", "Silver Futures"], ["CL=F", "Crude Oil"],
     ["BZ=F", "Brent Crude"], ["NG=F", "Natural Gas"], ["EURUSD=X", "EUR/USD"], ["GBPUSD=X", "GBP/USD"], ["USDJPY=X", "USD/JPY"], ["USDRUB=X", "USD/RUB"],
@@ -509,6 +510,57 @@ const SRC = {
   YAHOO: yahooSrc(),
   CT
 };
+/* ---------- таймфреймы, которых нет у источника: собираем из меньших свечей ---------- */
+const NATIVE = {
+  BINANCE: ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "8h", "12h", "1d", "1w", "1M"],
+  BYBIT: ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "4h", "6h", "12h", "1d", "1w", "1M"],
+  CT: ["1m", "2m", "3m", "4m", "5m", "10m", "15m", "30m", "1h", "4h", "12h", "1d", "1w", "1M"]
+};
+NATIVE.BINANCEF = NATIVE.BINANCE;
+function aggBars(bars, sec) {
+  const out = [];
+  for (const b of bars) {
+    const t = Math.floor(b.time / sec) * sec, o = out[out.length - 1];
+    if (o && o.time === t) { o.high = Math.max(o.high, b.high); o.low = Math.min(o.low, b.low); o.close = b.close; o.volume += b.volume; }
+    else out.push({time: t, open: b.open, high: b.high, low: b.low, close: b.close, volume: b.volume});
+  }
+  return out;
+}
+const AGG_CACHE = {};
+for (const [id, nat] of Object.entries(NATIVE)) {
+  const s = SRC[id], h = s.history.bind(s), kl = s.kline.bind(s);
+  const baseOf = tf => nat.includes(tf) ? null : nat.filter(n => TF_SEC[n] < TF_SEC[tf] && TF_SEC[tf] % TF_SEC[n] === 0 && TF_SEC[n] < 86400).sort((x, y) => TF_SEC[y] - TF_SEC[x])[0];
+  s.history = async (sym, tf, limit, endSec) => {
+    const b = baseOf(tf); if (!b) return h(sym, tf, limit, endSec);
+    const sec = TF_SEC[tf], k = sec / TF_SEC[b];
+    let need = Math.min(limit * k + k, 3000), end = endSec, all = [], dig = 2;
+    for (let i = 0; i < 4 && need > 0; i++) {
+      const r = await h(sym, b, Math.min(1000, need), end); dig = r.digits || dig;
+      const part = r.bars.filter(x => !all.length || x.time < all[0].time);
+      if (!part.length) break;
+      all = part.concat(all); need -= part.length; end = part[0].time;
+      if (part.length < Math.min(1000, need + part.length) * 0.5) break;
+    }
+    let ag = aggBars(all, sec);
+    if (ag.length > 1 && all.length && all[0].time !== ag[0].time) ag = ag.slice(1);       // первая свеча неполная
+    const lt = ag.length ? ag[ag.length - 1].time : null;
+    if (!endSec && lt != null) AGG_CACHE[id + sym + tf] = {t: lt, m: new Map(all.filter(x => x.time >= lt).map(x => [x.time, x]))};
+    return {bars: ag.slice(-limit), digits: dig};
+  };
+  s.kline = (sym, tf, cb, last) => {
+    const b = baseOf(tf); if (!b) return kl(sym, tf, cb, last);
+    const sec = TF_SEC[tf], ck = id + sym + tf;
+    const cur = () => { const c = AGG_CACHE[ck]; if (!c || !c.m.size) return null; const arr = [...c.m.values()].sort((x, y) => x.time - y.time); return arr[arr.length - 1]; };
+    return kl(sym, b, bar => {
+      const t = Math.floor(bar.time / sec) * sec;
+      let c = AGG_CACHE[ck];
+      if (!c || c.t !== t) { if (c && t < c.t) return; c = AGG_CACHE[ck] = {t, m: new Map()}; }
+      c.m.set(bar.time, bar);
+      const arr = [...c.m.values()].sort((x, y) => x.time - y.time);
+      cb({time: t, open: arr[0].open, high: Math.max(...arr.map(x => x.high)), low: Math.min(...arr.map(x => x.low)), close: arr[arr.length - 1].close, volume: arr.reduce((v, x) => v + x.volume, 0)});
+    }, cur);
+  };
+}
 const SRC_TAG = {BINANCE: "Binance", BINANCEF: "Binance F", BYBIT: "Bybit", YAHOO: "Yahoo", CT: "cTrader"};
 const splitKey = k => { const i = k.indexOf(":"); return [k.slice(0, i), k.slice(i + 1)]; };
 
@@ -1008,7 +1060,7 @@ function popMenu(anchor, items) {
 function closeMenu() { const m = $("#popMenu"); if (m) m.classList.remove("on"); }
 
 /* ---- интервалы (как в TradingView) ---- */
-const TF_GROUPS = [["МИНУТЫ", ["1m", "3m", "5m", "15m", "30m"]], ["ЧАСЫ", ["1h", "2h", "4h"]], ["ДНИ", ["1d", "1w", "1M"]]];
+const TF_GROUPS = [["МИНУТЫ", ["1m", "2m", "3m", "4m", "5m", "10m", "15m", "20m", "30m"]], ["ЧАСЫ", ["1h", "2h", "3h", "4h", "6h", "8h", "12h"]], ["ДНИ", ["1d", "1w", "1M"]]];
 const tfLabel = t => {
   const n = parseInt(t), u = t.replace(/\d+/, ""), ru = LANG === "ru";
   return n + ({m: ru ? "м" : "m", h: ru ? "ч" : "h", d: ru ? "Д" : "D", w: ru ? "Н" : "W", M: ru ? "М" : "M"}[u] || u);
